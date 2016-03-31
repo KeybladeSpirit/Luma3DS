@@ -42,7 +42,7 @@ CFLAGS	+=	$(INCLUDE)
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS	:=	-g $(ARCH) 
-LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,$(TARGET).map
+LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,$(BUILD)/$(TARGET).map
 
 LDFLAGS += --specs=../bootstrap.specs
 

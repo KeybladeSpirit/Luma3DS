@@ -210,7 +210,7 @@ void cryptArm9Bin(u8* buf)
 void powerFirm()
 {
 	Debug("PowerFirm 3DS - @2016, Jason Dellaluce");
-	//Debug("Buildtime : %s %s", __TIME__, __DATE__);
+	Debug("Rev %s", BUILDTIME);
 	
 	u8* firm = decryptNativeFirm();
 	

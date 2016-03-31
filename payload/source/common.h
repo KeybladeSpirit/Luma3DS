@@ -39,4 +39,4 @@
 #include "fatfs/fs.h"
 
 #define isNew3DS	(*((volatile u32*)0x10140FFC) == 7 && *((volatile u32*)0x10140FFC) != 1)
-
+#define isColdBoot	(*((volatile u32*)0x10010000) == 0)

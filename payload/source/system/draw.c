@@ -74,6 +74,7 @@ void DrawCharacter(u8* screen, int character, int x, int y, int color, int bgcol
 
 void DrawString(u8* screen, const char *str, int x, int y, int color, int bgcolor)
 {
+	if(!isColdBoot) return;
     for (int i = 0; i < strlen(str); i++)
         DrawCharacter(screen, str[i], x + i * 8, y, color, bgcolor);
 }

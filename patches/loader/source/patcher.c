@@ -183,10 +183,12 @@ int patch_code(u64 progid, u8 *code, u32 size)
 	static const char block_updates_patch[]			= {0xE3, 0xA0};
 	static const char block_eshop_updates_pattern[]	= {0x30, 0xB5, 0xF1, 0xB0};
 	static const char block_eshop_updates_patch[]	= {0x00, 0x20, 0x08, 0x60, 0x70, 0x47};
-			
+	static const char stop_updates_pattern[]		= {0x0C, 0x18, 0xE1, 0xD8};
+	static const char stop_updates_patch[]			= {0x0B, 0x18, 0x21, 0xC8};
+	
 	switch(progid)
 	{
-		case 0x0004003000008F02LL:	
+		case 0x0004003000008F02LL:
 		case 0x0004003000008202LL:
 		case 0x0004003000009802LL:
 		case 0x000400300000A102LL:
@@ -197,14 +199,20 @@ int patch_code(u64 progid, u8 *code, u32 size)
 			patch_memory(code, size, region_free_pattern, sizeof(region_free_pattern), -16, region_free_patch, sizeof(region_free_patch), 1);
 			break;
 		}
-		case 0x0004013000002C02LL:	
+		case 0x0004013000002C02LL:
 		{
 			// NIM
 			patch_memory(code, size, block_updates_pattern, sizeof(block_updates_pattern), 0, block_updates_patch, sizeof(block_updates_patch), 1);
 			patch_memory(code, size, block_eshop_updates_pattern, sizeof(block_eshop_updates_pattern), 0, block_eshop_updates_patch, sizeof(block_eshop_updates_patch), 1);
-			break;  
+			break;
 		}
-		case 0x0004001000020000LL:	
+		case 0x0004013000008002LL:
+		{
+			// NS
+			patch_memory(code, size, stop_updates_pattern, sizeof(stop_updates_pattern), 0, stop_updates_patch, sizeof(stop_updates_patch), 2);
+			break;
+		}
+		case 0x0004001000020000LL:
 		case 0x0004001000021000LL:
 		case 0x0004001000022000LL:
 		case 0x0004001000026000LL:

@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "../common.h"
 
 #define MAX_FILES	100
 

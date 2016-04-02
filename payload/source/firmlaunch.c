@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "firmlaunch.h"
 
 void firmLaunchBin(u8* firmBuffer)
@@ -45,7 +46,7 @@ fsFile* findNativeFirm()
 			// what matters is the latest version of NATIVE_FIRM.
 			// We check it by a simple tid comparision.
 			u32 curId;
-			sscanf(info.fname, "%08X.APP", &curId);
+			sscanf(info.fname, "%08X.APP", (unsigned int *) &curId);
 			if(curId > tid) tid = curId;
 		}
 		if(info.fname[0] == 0) break;

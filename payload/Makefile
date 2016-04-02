@@ -33,7 +33,7 @@ VERSION		:=	Ver. $(patsubst 2016%,16%,$(DATE))
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb -mthumb-interwork
 #ARCH	:=
-CFLAGS	:=	-g -Wall -O2\
+CFLAGS	:=	-g -Wall -O2 -Wno-unused-variable\
 			-march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
 			-ffast-math -std=c11\
 			$(ARCH) -DVERSION='"$(VERSION)"'

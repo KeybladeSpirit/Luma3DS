@@ -1,0 +1,114 @@
+         w __deregister_frame_info
+         w __register_frame_info
+         w _ITM_deregisterTMCloneTable
+         w _ITM_registerTMCloneTable
+         w _Jv_RegisterClasses
+14000000 A __start__
+14000000 T _start
+14000008 T __service_ptr
+1400000c T __apt_appid
+14000010 T __heap_size
+14000014 T __linear_heap_size
+14000018 T __system_arglist
+1400001c T __system_runflags
+14000020 t startup
+14000058 t ClearMem
+1400006c t ClrLoop
+14000094 T _init
+140000ac t deregister_tm_clones
+140000dc t register_tm_clones
+14000114 t __do_global_dtors_aux
+14000158 t frame_dummy
+140001b8 00000038 t FSREG_UnloadProgram
+140001f0 00000038 t FSREG_CheckHostLoadId
+14000228 000000c8 t loader_GetProgramInfo.constprop.3
+140002f0 00000068 t srvSysGetServiceHandle
+14000358 00000188 t boyer_moore
+140004e0 0000007c t patch_memory
+1400055c 00000334 T initSystem
+14000890 00000110 T __ctru_exit
+140009a0 00000e74 T main
+14001818 00000034 t LightLock_Unlock.part.1
+1400184c 0000000c T __sync_init
+14001858 00000018 T __sync_fini
+14001870 00000018 T LightLock_Init
+14001888 00000094 T LightLock_Lock
+1400191c 00000034 T LightLock_TryLock
+14001950 00000020 T LightLock_Unlock
+14001970 00000024 T RecursiveLock_Init
+14001994 00000030 T RecursiveLock_Lock
+140019c4 00000058 T RecursiveLock_TryLock
+14001a1c 00000038 T RecursiveLock_Unlock
+14001a54 0000005c T FSFILE_Read
+14001ab0 0000003c T FSFILE_GetSize
+14001aec 0000003c T FSFILE_Close
+14001b28 00000030 t __ctru_get_reent
+14001b58 000000e8 T __system_initSyscalls
+14001c40 T svcControlMemory
+14001c60 T svcExitProcess
+14001c68 T svcSleepThread
+14001c70 T svcCreateAddressArbiter
+14001c84 T svcArbitrateAddress
+14001c9c T svcCloseHandle
+14001ca4 T svcGetSystemTick
+14001cac T svcConnectToPort
+14001cc0 T svcSendSyncRequest
+14001cc8 T svcGetProcessId
+14001cdc T svcBreak
+14001ce4 T svcAcceptSession
+14001cfc T svcReplyAndReceive
+14001d14 T svcCreateCodeSet
+14001d30 T svcCreateProcess
+14001d48 00000058 t getSysTime
+14001da0 000000f4 T __libctru_gtod
+14001e98 000000f0 T memcpy
+14001f88 0000005c T strlen
+14001fe4 000000e0 T strncpy
+140020c4 000000f4 T memset
+140021b8 T _fini
+14003000 0000000c r CODE_PATH
+1400300c 00000008 r region_free_pattern.9254
+14003014 00000008 r region_free_patch.9255
+1400301c 00000004 r block_updates_pattern.9256
+14003020 00000002 r block_updates_patch.9257
+14003022 00000004 r block_eshop_updates_pattern.9258
+14003026 00000006 r block_eshop_updates_patch.9259
+1400302c 00000004 r stop_updates_pattern.9260
+14003030 00000004 r stop_updates_patch.9261
+1400308c r __EH_FRAME_BEGIN__
+1400308c R __exidx_end
+1400308c R __exidx_start
+14004000 00000440 d impure_data
+14004440 00000004 D _impure_ptr
+14004444 t __frame_dummy_init_array_entry
+14004444 d __JCR_LIST__
+14004444 D __tdata_lma
+14004444 D __tdata_lma_end
+14004444 D __TMC_END__
+14004444 d __TMC_LIST__
+14004448 t __do_global_dtors_aux_fini_array_entry
+1400444c T __bss_start__
+1400444c b completed.6505
+14004450 b object.6510
+14004468 00000004 b fsregHandle
+1400446c 00000800 b g_exheader
+14004c6c 00000004 b pxipmHandle
+14004c70 00000004 b srvHandle
+14004c74 0000000c b g_handles
+14004c80 00000004 b g_active_handles
+14004c88 00000008 b g_cached_prog_handle
+14004c90 00000004 b fsldrHandle
+14004c94 00000400 b g_ret_buf
+14005094 0000000c b initLock
+140050a0 00000004 b srvRefCount
+140050a4 00000004 b fsregRefCount
+140050a8 00000004 b fsldrRefCount
+140050ac 00000004 b pxipmRefCount
+140050b0 00000004 b arbiter
+140050b4 00000038 B __syscalls
+140050ec 00000004 B __system_argv
+140050f0 00000004 B __system_argc
+140050f4 B __bss_end__
+140050f4 A __end__
+140050f4 B __tls_end
+140050f4 B __tls_start

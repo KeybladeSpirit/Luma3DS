@@ -104,8 +104,15 @@ void DebugClear()
     ClearScreen(TOP_SCREEN1, SCREEN_WIDTH_TOP, DBG_COLOR_BG);
 }
 
+int firstTime = 0;
+
 void Debug(const char *format, ...)
 {
+	if(!firstTime)
+	{
+		firstTime = 1;
+		DebugClear();
+	}
     char tempstr[DBG_N_CHARS_X] = { 0 };
     va_list va;
     

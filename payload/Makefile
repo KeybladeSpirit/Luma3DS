@@ -21,7 +21,8 @@ BUILD		:=	build
 SOURCES		:=	source source/fatfs source/system
 DATA		:=	data
 INCLUDES	:=	source source/fatfs
-BUILDTIME	:= 	$(shell date +'%m.%d.%Y %H:%M:%S')
+DATE		:= 	$(shell date +'%Y%m%d')
+VERSION		:=	Ver. $(patsubst 2016%,16%,$(DATE))
 
 #---------------------------------------------------------------------------------
 # Setup some defines
@@ -35,7 +36,7 @@ ARCH	:=	-mthumb -mthumb-interwork
 CFLAGS	:=	-g -Wall -O2\
 			-march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
 			-ffast-math -std=c11\
-			$(ARCH) -DBUILDTIME='"$(BUILDTIME)"'
+			$(ARCH) -DVERSION='"$(VERSION)"'
 
 CFLAGS	+=	$(INCLUDE)
 

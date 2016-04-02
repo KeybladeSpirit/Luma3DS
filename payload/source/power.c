@@ -207,10 +207,95 @@ void cryptArm9Bin(u8* buf)
     aes((void *)(buf+0x800), (void *)(buf+0x800), size/AES_BLOCK_SIZE, CTR, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
 }
 
+extern const unsigned char font[];
+
+void drawGiantLetter(int character, int x, int y, int xScale, int yScale)
+{
+    for (int yy = 0; yy < 8*yScale; yy+=yScale)
+	{
+        int xDisplacement = (x * BYTES_PER_PIXEL * SCREEN_HEIGHT);
+        int yDisplacement = ((SCREEN_HEIGHT - (y + yy) - 1) * BYTES_PER_PIXEL);
+		
+		for(int _scaley = 0; _scaley < yScale; _scaley++)
+		{
+			u8* screenPos = TOP_SCREEN0 + xDisplacement + yDisplacement;
+			u8 charPos = font[character * 8 + yy/yScale];
+			for (int xx = 7; xx >= 0; xx--)
+			{
+				for(int _scalex = 0; _scalex < xScale; _scalex++)
+				{
+					if ((charPos >> xx) & 1)
+					{
+						*(screenPos + 0) = COLOR_WHITE >> 16;  // B
+						*(screenPos + 1) = COLOR_WHITE >> 8;   // G
+						*(screenPos + 2) = COLOR_WHITE & 0xFF; // R
+					} else {
+						*(screenPos + 0) = COLOR_BLACK >> 16;  // B
+						*(screenPos + 1) = COLOR_BLACK >> 8;   // G
+						*(screenPos + 2) = COLOR_BLACK & 0xFF; // R
+					}
+					screenPos += BYTES_PER_PIXEL * SCREEN_HEIGHT;
+				}
+			}
+			yDisplacement += BYTES_PER_PIXEL;
+		}
+    }
+}
+
+void drawSplashString(const char* str, int y, bool anim)
+{
+	int xScale = 4;
+	int yScale = 3;
+	int charDist = 8*xScale;
+	int xPos = (400 - strlen(str)*(charDist))/2;
+	int waitTime = 10000000/8;
+	int drawTime = 1000000/2;
+	
+	if(anim)
+	{
+		drawGiantLetter('_', xPos + charDist*0, y, xScale, yScale);
+		ioDelay(waitTime);
+		drawGiantLetter(' ', xPos + charDist*0, y, xScale, yScale);
+		ioDelay(waitTime); 
+		
+		for(int i = 0; i < strlen(str) + 1; i++)
+		{
+			for(int j = 0; j < i; j++)
+			{
+				drawGiantLetter(str[j], xPos + charDist*j, y, xScale, yScale);
+			}
+			drawGiantLetter('_', xPos + charDist*(i), y, xScale, yScale);
+			ioDelay(drawTime);
+		}
+		drawGiantLetter(' ', xPos + charDist*strlen(str), y, xScale, yScale);
+		ioDelay(waitTime);
+		drawGiantLetter('_', xPos + charDist*strlen(str), y, xScale, yScale);
+		ioDelay(waitTime);
+		drawGiantLetter(' ', xPos + charDist*strlen(str), y, xScale, yScale);
+		ioDelay(waitTime);
+	}
+	else
+	{
+		for(int i = 0; i < strlen(str); i++)
+		{
+			drawGiantLetter(str[i], xPos + charDist*i, y, xScale, yScale);
+		}
+	}
+}
+
+void splashScreen()
+{
+	if(!isColdBoot) return;
+	ClearScreenFull(1, 1);
+	DrawStringF(10, 220, 1, VERSION);
+	DrawStringF(208, 220, 1, "@2016, Jason Dellaluce");
+	drawSplashString("PowerFirm", 88, 1);
+	drawSplashString("3DS", 128, 0);
+}
+
 void powerFirm()
 {
-	Debug("PowerFirm 3DS - @2016, Jason Dellaluce");
-	Debug("Rev %s", BUILDTIME);
+	splashScreen();
 	
 	u8* firm = decryptNativeFirm();
 	

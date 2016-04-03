@@ -13,20 +13,141 @@ typedef struct
 	u8 hash[0x20];
 } firmEntry;
 
+// Below is stolen from http://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string_search_algorithm
+
+#define ALPHABET_LEN 256
+#define NOT_FOUND patlen
+#define max(a, b) ((a < b) ? b : a)
+ 
+// delta1 table: delta1[c] contains the distance between the last
+// character of pat and the rightmost occurence of c in pat.
+// If c does not occur in pat, then delta1[c] = patlen.
+// If c is at string[i] and c != pat[patlen-1], we can
+// safely shift i over by delta1[c], which is the minimum distance
+// needed to shift pat forward to get string[i] lined up 
+// with some character in pat.
+// this algorithm runs in alphabet_len+patlen time.
+static void make_delta1(int *delta1, u8 *pat, int patlen)
+{
+	int i;
+	for (i=0; i < ALPHABET_LEN; i++) {
+		delta1[i] = NOT_FOUND;
+	}
+	for (i=0; i < patlen-1; i++) {
+		delta1[pat[i]] = patlen-1 - i;
+	}
+}
+ 
+// true if the suffix of word starting from word[pos] is a prefix 
+// of word
+static int is_prefix(u8 *word, int wordlen, int pos)
+{
+	int i;
+	int suffixlen = wordlen - pos;
+	// could also use the strncmp() library function here
+	for (i = 0; i < suffixlen; i++) {
+		if (word[i] != word[pos+i]) {
+			return 0;
+		}
+	}
+	return 1;
+}
+ 
+// length of the longest suffix of word ending on word[pos].
+// suffix_length("dddbcabc", 8, 4) = 2
+static int suffix_length(u8 *word, int wordlen, int pos)
+{
+	int i;
+	// increment suffix length i to the first mismatch or beginning
+	// of the word
+	for (i = 0; (word[pos-i] == word[wordlen-1-i]) && (i < pos); i++);
+	return i;
+}
+ 
+// delta2 table: given a mismatch at pat[pos], we want to align 
+// with the next possible full match could be based on what we
+// know about pat[pos+1] to pat[patlen-1].
+//
+// In case 1:
+// pat[pos+1] to pat[patlen-1] does not occur elsewhere in pat,
+// the next plausible match starts at or after the mismatch.
+// If, within the substring pat[pos+1 .. patlen-1], lies a prefix
+// of pat, the next plausible match is here (if there are multiple
+// prefixes in the substring, pick the longest). Otherwise, the
+// next plausible match starts past the character aligned with 
+// pat[patlen-1].
+// 
+// In case 2:
+// pat[pos+1] to pat[patlen-1] does occur elsewhere in pat. The
+// mismatch tells us that we are not looking at the end of a match.
+// We may, however, be looking at the middle of a match.
+// 
+// The first loop, which takes care of case 1, is analogous to
+// the KMP table, adapted for a 'backwards' scan order with the
+// additional restriction that the substrings it considers as 
+// potential prefixes are all suffixes. In the worst case scenario
+// pat consists of the same letter repeated, so every suffix is
+// a prefix. This loop alone is not sufficient, however:
+// Suppose that pat is "ABYXCDEYX", and text is ".....ABYXCDEYX".
+// We will match X, Y, and find B != E. There is no prefix of pat
+// in the suffix "YX", so the first loop tells us to skip forward
+// by 9 characters.
+// Although superficially similar to the KMP table, the KMP table
+// relies on information about the beginning of the partial match
+// that the BM algorithm does not have.
+//
+// The second loop addresses case 2. Since suffix_length may not be
+// unique, we want to take the minimum value, which will tell us
+// how far away the closest potential match is.
+static void make_delta2(int *delta2, u8 *pat, int patlen)
+{
+	int p;
+	int last_prefix_index = patlen-1;
+ 
+	// first loop
+	for (p=patlen-1; p>=0; p--) {
+		if (is_prefix(pat, patlen, p+1)) {
+		last_prefix_index = p+1;
+		}
+		delta2[p] = last_prefix_index + (patlen-1 - p);
+	}
+ 
+	// second loop
+	for (p=0; p < patlen-1; p++) {
+		int slen = suffix_length(pat, patlen, p);
+		if (pat[p - slen] != pat[patlen-1 - slen]) {
+		delta2[patlen-1 - slen] = patlen-1 - p + slen;
+		}
+	}
+}
+ 
+static u8* boyer_moore(u8 *string, int stringlen, u8 *pat, int patlen)
+{
+	int i;
+	int delta1[ALPHABET_LEN];
+	int delta2[patlen * sizeof(int)];
+	make_delta1(delta1, pat, patlen);
+	make_delta2(delta2, pat, patlen);
+ 
+	i = patlen-1;
+	while (i < stringlen) {
+		int j = patlen-1;
+		while (j >= 0 && (string[i] == pat[j])) {
+			--i;
+			--j;
+		}
+		if (j < 0) {
+			return (string + i+1);
+		}
+ 
+		i += max(delta1[string[i]], delta2[j]);
+	}
+	return NULL;
+}
+
 u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 {
-	u8* block = (u8*)memblock;
-	for(u8* mem = memstart; mem < memend; mem += 2)
-	{
-		int found = 1;
-		for(int i = 0; i < memsize; i++)
-		{
-			if(*(mem + i) != *(block + i))
-				found = 0;
-		}
-		if(found) return mem;
-	}
-	return 0;
+	return boyer_moore(memstart, (int)(memend - memstart), memblock, (int)memsize);
 }
 
 u32 getProcess9Shift(u8* data, u32 size)
@@ -178,33 +299,37 @@ void cryptArm9Bin(u8* buf)
 	if(*((u32*)(buf + 0x50)) == 0x324C394B) key2 = secretKeys[1];
 	else key2 = secretKeys[0];
 	
-	 //Firm keys
-    u8 keyX[0x10];
-    u8 keyY[0x10];
-    u8 CTR[0x10];
-    u32 slot = 0x16;
-    
-    //Setup keys needed for arm9bin decryption
-    memcpy((u8*)keyY, (void *)((uintptr_t)buf+0x10), 0x10);
-    memcpy((u8*)CTR, (void *)((uintptr_t)buf+0x20), 0x10);
-    u32 size = atoi((void *)((uintptr_t)buf+0x30));
-
-    //Set 0x11 to key2 for the arm9bin and misc keys
-    aes_setkey(0x11, (u8*)key2, AES_KEYNORMAL, AES_INPUT_BE | AES_INPUT_NORMAL);
-    aes_use_keyslot(0x11);
-    
-    //Set 0x16 keyX, keyY and CTR
+	// Firm keys
+	u8 keyX[0x10];
+	u8 keyY[0x10];
+	u8 CTR[0x10];
+	u32 slot = 0x16;
+	
+	// Setup keys needed for arm9bin decryption
+	memcpy((u8*)keyY, (void *)((uintptr_t)buf+0x10), 0x10);
+	memcpy((u8*)CTR, (void *)((uintptr_t)buf+0x20), 0x10);
+	u32 size = atoi((void *)((uintptr_t)buf+0x30));
+	
+	// Set 0x11 to key2 for the arm9bin and misc keys
+	aes_setkey(0x11, (u8*)key2, AES_KEYNORMAL, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_use_keyslot(0x11);
+	
+	// Set 0x16 keyX, keyY and CTR
 	if(*((u32*)(buf + 0x100)) == 0)
+	{
 		aes((u8*)keyX, (void *)((uintptr_t)buf+0x60), 1, NULL, AES_ECB_DECRYPT_MODE, 0);
+	}
 	else
+	{
 		aes((u8*)keyX, (void *)((uintptr_t)buf+0x00), 1, NULL, AES_ECB_DECRYPT_MODE, 0);
-    aes_setkey(slot, (u8*)keyX, AES_KEYX, AES_INPUT_BE | AES_INPUT_NORMAL);
-    aes_setkey(slot, (u8*)keyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
-    aes_setiv((u8*)CTR, AES_INPUT_BE | AES_INPUT_NORMAL);
-    aes_use_keyslot(slot);
-    
-    //Decrypt arm9bin
-    aes((void *)(buf+0x800), (void *)(buf+0x800), size/AES_BLOCK_SIZE, CTR, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
+	}
+	aes_setkey(slot, (u8*)keyX, AES_KEYX, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_setkey(slot, (u8*)keyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_setiv((u8*)CTR, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_use_keyslot(slot);
+	
+	//Decrypt arm9bin
+	aes((void *)(buf+0x800), (void *)(buf+0x800), size/AES_BLOCK_SIZE, CTR, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
 }
 
 extern const unsigned char font[];
@@ -320,12 +445,12 @@ void powerFirm()
 		isNew = 0x800;
 	}
 	
-	res += patchLoaderModule		(firm + (u32)entry[0].data, entry[0].size);
-	res += patchFirmPartitionUpdate	(firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-	res += patchFirmLaunch			(firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-	res += patchSignatureChecks		(firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-	res += patchArm9Mpu				(firm + (u32)entry[2].data + isNew, entry[2].size - isNew);		
-	res += patchArm9KernelCode		(firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+	res += patchLoaderModule (firm + (u32)entry[0].data, entry[0].size);
+	res += patchFirmPartitionUpdate (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+	res += patchFirmLaunch (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+	res += patchSignatureChecks (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+	res += patchArm9Mpu (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);		
+	res += patchArm9KernelCode (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
 	
 	if(res)
 	{

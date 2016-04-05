@@ -8,10 +8,13 @@ void firmLaunchBin(u8* firmBuffer)
 	for(int i = 0; i < 4; i++)
 	{
 		if(entry[2] > 0)
+		{
 			memcpy((void*)entry[1], entry[0] + (void*)firmBuffer, entry[2]);
+		}
 		entry += 0x30/sizeof(u32);
 	}
 	*((u32*)0x1FFFFFF8) = *((u32*)(firmBuffer + 8));
+	*((u32*)0x1FFFFFFC) = *((u32*)(firmBuffer + 8));
 	((void (*)())*((u32*)(firmBuffer + 12)))();
 }
 
@@ -28,22 +31,23 @@ void firmLaunchFile(char* filename, unsigned int offset)
 	}
 }
 
-fsFile* findNativeFirm()
+fsFile* findTitleContent(u32 tid_low, u32 tid_high)
 {
-	// Searches for the latest NATIVE_FIRM installed, and returns
+	// Searches for the latest content installed, and returns
 	// a file pointer to its NCCH.
     DIR dir;
 	FILINFO info;
-	char str[256], *fdir = isNew3DS ? "nand:/title/00040138/20000002/content" : "nand:/title/00040138/00000002/content";
+	char str[256], fdir[256];
 	u32 tid = 0;
 	
+	sprintf(fdir, "nand:/title/%08X/%08X/content", tid_low, tid_high);
 	if(f_opendir(&dir, fdir) != FR_OK) return 0;
 	while(f_readdir(&dir, &info) == FR_OK)
 	{
 		if(strstr(info.fname, ".app") || strstr(info.fname, ".APP"))
 		{
 			// We do not need it to be the proper installed version, 
-			// what matters is the latest version of NATIVE_FIRM.
+			// what matters is the latest version of the content.
 			// We check it by a simple tid comparision.
 			u32 curId;
 			sscanf(info.fname, "%08X.APP", (unsigned int *) &curId);
@@ -62,10 +66,11 @@ fsFile* findNativeFirm()
 	return 0;
 }
 
-u8* decryptNativeFirm()
+u8* getFirmFromTitle(firmType tid)
 {
-	// Decrypts NATIVE_FIRM from the installed title
-	fsFile* file = findNativeFirm();
+	// Decrypts firm from the installed title
+	if(isNew3DS) tid != 0x20000000;
+	fsFile* file = findTitleContent(0x00040138, tid);
 	if(file)
 	{
 		// Read NCCH from file
@@ -100,7 +105,7 @@ u8* decryptNativeFirm()
 
 void launchNativeFirm()
 {
-	u8* firm = decryptNativeFirm();
+	u8* firm = getFirmFromTitle(NATIVE_FIRM);
 	if(firm)
 	{
 		firmLaunchBin(firm);

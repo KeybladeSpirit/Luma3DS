@@ -46,7 +46,8 @@ int main()
 	}
 	
 	// Start ARM9 Kernel now
-	((void (*)())0x801B01C)();
+	extern u32 entryPoint;
+	((void (*)())entryPoint)();
 	
 	while(1);
 	return 0;

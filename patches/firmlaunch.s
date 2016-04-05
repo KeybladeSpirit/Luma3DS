@@ -1,227 +1,163 @@
 .nds
 .create "patches/firmlaunch.bin", 0
 
-.definelabel byteswritten,	0x2000E000
-.definelabel externalFirm, 	0x2000A000
-.definelabel kernelCode,	0x080F0000
+.definelabel fileHandle,	0x2000A000
+.definelabel tmpVar,		0x2000E000
 .definelabel buffer,		0x24000000
-.definelabel fileOpen,		0xBADC0DED
-.definelabel fileOffset,	0x9000
+.definelabel address,		0x23F00000
+.definelabel fileOpen,		0xBADC0DED	; Will be set during patching
 
 .arm
-//Code jumps here right after the sprintf call
-process9Reboot:
-	doPxi:
-        ldr r4, =0x44846
-		ldr r0, =0x10008000
-		readPxiLoop1:
-			ldrh r1, [r0,#4]
-			.word 0xE1B01B81	//lsls r1, r1, #0x17
-			bmi readPxiLoop1
-			ldr r0, [r0,#0xC]		
-        cmp r0, r4
-        bne doPxi
+; Code jumps here right after the sprintf call
 	
-	GetFirmPath:
-		add r0, sp, #0x3A8-0x70+0x24
-		ldr r1, [r0], #4
-		ldr r2, =0x00300030
-		cmp r1, r2
-		ldreq r1, [r0], #4
-		ldreq r2, =0x002F0032
-		cmpeq r1, r2
+doPxi:
+    ldr r4, =0x44846
+	ldr r0, =0x10008000
+	_doPxi:
+		ldrh r1, [r0,#4]
+		.word 0xE1B01B81	; lsls r1, r1, #0x17
+		bmi _doPxi
+		ldr r0, [r0,#0xC]		
+    cmp r0, r4
+    bne doPxi
+
+cleanFileHandle:
+	mov r0, #0
+	ldr r1, =fileHandle
+	mov r2, r0
+	mov r3, #0x20
+	_cleanFileHandle:
+		str r2, [r1]
+		add r1, #4
+		add r0, #1
+		cmp r0, r3
+		blt _cleanFileHandle
 		
-	OpenFirm:
-		ldreq r1, =(FileName - OpenFirm - 12)
-		addeq r1, pc
-		beq HardReboot
-		addne r1, sp, #0x3A8-0x70
-		ldr r0, =externalFirm
-		moveq r2, #1
-		movne r2, #0
-		str r2, [r0]
-		mov r2, #1
-		add r0, r7, #8
-		ldr r6, =fileOpen
-		blx r6
+loadPayload:
+	ldr r1, =(fileName - loadPayload - 12)
+	add r1, pc
+	mov r2, #1
+	ldr r0, =fileHandle+8
+	ldr r6, =fileOpen
+	blx r6
 	
-    SeekFirm:
-		ldr r0, =externalFirm
-		ldr r0, [r0]
-		cmp r0, #1
-		moveq r0, r7
-        ldreq r1, =byteswritten
-        ldreq r2, =buffer
-        ldreq r3, =fileOffset
-		ldreq r6, [sp,#0x3A8-0x198]
-		ldreq r6, [r6,#0x28]	//fread function stored here
-		blxeq r6
+	ldr r0, =fileHandle
+    ldr r1, =tmpVar
+    ldr r2, =buffer
+    ldr r3, =0xFFE00
+	ldr r6, [sp,#0x3A8-0x198]
+	ldr r6, [r6,#0x28]	; fread(handle, bytes, buffer, size)
+	blx r6
+	
+	ldr r1, =buffer+4
+	add r0, sp, #0x3A8-0x70	
+	mov r2, #0x38
+	bl memcpy
+	
+svcKernelSetState:
+    mov r2, #0
+    mov r3, #0
+    mov r1, #0
+    mov r0, #0
+    .word 0xEF00007C	; svc 0x7C
 		
-	ReadFirm:
-		mov r0, r7
-        ldr r1, =byteswritten
-        ldr r2, =buffer
-        ldr r3, =0x200000
-		ldr r6, [sp,#0x3A8-0x198]
-		ldr r6, [r6,#0x28]	//fread function stored here
-		blx r6
-
-    KernelSetState:
-        mov r2, #0
-        mov r3, r2
-        mov r1, r2
-        mov r0, r2
-        .word 0xEF00007C    //SVC 0x7C
-
-    GoToReboot:
-        ldr r0, =(KernelCodeStart - GoToReboot - 12)
-		add r0, pc
-		ldr r1, =kernelCode
-		ldr r2, =0x300
-		bl Memcpy
+runKernelCode:
+	ldr r0, =(kernelEntry - runKernelCode - 12)
+	add r0, pc
+    .word 0xEF00007B	; svc 0x7B
 		
-		ldr r0, =kernelCode
-        .word 0xEF00007B    //SVC 0x7B
+dieLoop:
+	b dieLoop
 
-    InfiniteLoop:
-        b InfiniteLoop
-	
-	HardReboot:
-		ldr r0, =0x0801A604
-        .word 0xEF00007B    //SVC 0x7B
+memcpy:
+	mov r12, lr
+	stmfd sp!, {r0-r4}
+	add r2, r2, r0
+	_memcpy:
+		ldr r3, [r0],#4
+		str r3, [r1],#4
+		cmp r0, r2
+		blt _memcpy
+	ldmfd sp!, {r0-r4}
+	mov lr, r12
+	bx lr
 
-Memcpy:
-	MOV     R12, LR
-	STMFD   SP!, {R0-R4}
-	ADD     R2, R2, R0
+mcuRebootSystem:
+	ldr r0, =0x0801A604
+	.word 0xEF00007B    //SVC 0x7B
+		
+mcuShutdownSystem:
+	ldr r0, =0x0801A608
+	.word 0xEF00007B    //SVC 0x7B
 
-	memcpyLoop:
-		LDR     R3, [R0],#4
-		STR     R3, [R1],#4
-		CMP     R0, R2
-		BLT     memcpyLoop
-		LDMFD   SP!, {R0-R4}
-		MOV     LR, R12
-		BX      LR
-	
-FileName:
+fileName:
 	.dcw "sdmc:/arm9loaderhax.bin"
-	.word 0x0
-
+	.word 0, 0, 0, 0, 0, 0, 0, 0, 0
 .pool
 
-// Kernel Code
-.align 4
-KernelCodeStart:
-	memorySetting:
-		MRC     p15, 0, R0,c2,c0, 0
-        MRC     p15, 0, R12,c2,c0, 1
-        MRC     p15, 0, R1,c3,c0, 0
-        MRC     p15, 0, R2,c5,c0, 2
-        MRC     p15, 0, R3,c5,c0, 3
-        LDR     R4, =0x18000035
-        BIC     R2, R2, #0xF0000
-        BIC     R3, R3, #0xF0000
-        ORR     R0, R0, #0x10
-        ORR     R2, R2, #0x30000
-        ORR     R3, R3, #0x30000
-        ORR     R12, R12, #0x10
-        ORR     R1, R1, #0x10
-        MCR     p15, 0, R0,c2,c0, 0
-        MCR     p15, 0, R12,c2,c0, 1
-        MCR     p15, 0, R1,c3,c0, 0
-        MCR     p15, 0, R2,c5,c0, 2
-        MCR     p15, 0, R3,c5,c0, 3
-        MCR     p15, 0, R4,c6,c4, 0
-        MRC     p15, 0, R0,c2,c0, 0
-        MRC     p15, 0, R1,c2,c0, 1
-        MRC     p15, 0, R2,c3,c0, 0
-        ORR     R0, R0, #0x20
-        ORR     R1, R1, #0x20
-        ORR     R2, R2, #0x20
-        MCR     p15, 0, R0,c2,c0, 0
-        MCR     p15, 0, R1,c2,c0, 1
-        MCR     p15, 0, R2,c3,c0, 0
+kernelEntry:
+	; MPU settings
+	mrc p15, 0, r0, c2, c0, 0  
+    mrc p15, 0, r12, c2, c0, 1
+    mrc p15, 0, r1, c3, c0, 0
+    mrc p15, 0, r2, c5, c0, 2
+    mrc p15, 0, r3, c5, c0, 3
+    ldr r4, =0x18000035 
+    bic r2, r2, #0xF0000
+    bic r3, r3, #0xF0000
+    orr r0, r0, #0x10
+    orr r2, r2, #0x30000
+    orr r3, r3, #0x30000
+    orr r12, r12, #0x10
+    orr r1, r1, #0x10
+    mcr p15, 0, r0, c2, c0, 0
+    mcr p15, 0, r12, c2, c0, 1
+    mcr p15, 0, r1, c3, c0, 0
+    mcr p15, 0, r2, c5, c0, 2
+    mcr p15, 0, r3, c5, c0, 3
+    mcr p15, 0, r4, c6, c4, 0
+    mrc p15, 0, r0, c2, c0, 0
+    mrc p15, 0, r1, c2, c0, 1
+    mrc p15, 0, r2, c3, c0, 0
+    orr r0, r0, #0x20
+    orr r1, r1, #0x20
+    orr r2, r2, #0x20
+    mcr p15, 0, r0, c2, c0, 0
+    mcr p15, 0, r1, c2, c0, 1
+    mcr p15, 0, r2, c3, c0, 0
 
-    copyFirmPartitions:
-        LDR     R4, =buffer
-        ADD     R3, R4, #0x40
-        LDR     R0, [R3]
-        ADD     R0, R0, R4
-        LDR     R1, [R3,#4]
-        LDR     R2, [R3,#8] 
-		bl KernelMemcpy
-		
-        ADD     R3, R4, #0x70
-        LDR     R0, [R3]
-        ADD     R0, R0, R4
-        LDR     R1, [R3,#4]
-        LDR     R2, [R3,#8]
-        bl KernelMemcpy
-			
-        ADD     R3, R4, #0xA0
-        LDR     R0, [R3]
-        ADD     R0, R0, R4
-        LDR     R1, [R3,#4]
-        LDR     R2, [R3,#8]
-        bl KernelMemcpy
-			
-		ADD     R3, R4, #0xD0
-        LDR     R0, [R3]
-		CMP		R0, #0
-		BEQ		invalidateDataCache
-        ADD     R0, R0, R4
-        LDR     R1, [R3,#4]
-        LDR     R2, [R3,#8]
-        bl KernelMemcpy
-		
-    invalidateDataCache:
-        MOV     R2, #0
-        MOV     R1, R2
-        loc_809460C:
-        MOV     R0, #0
-        MOV     R3, R2,LSL#30
-        loc_8094614:
-        ORR     R12, R3, R0,LSL#5
-        MCR     p15, 0, R1,c7,c10, 4
-        MCR     p15, 0, R12,c7,c14, 2
-        ADD     R0, R0, #1
-        CMP     R0, #0x20
-        BCC     loc_8094614
-        ADD     R2, R2, #1
-        CMP     R2, #4
-        BCC     loc_809460C
+    ; Flush cache
+    mov r2, #0
+    mov r1, r2
+    flushCache:
+        mov r0, #0
+        mov r3, r2, lsl #30
+        _flushCache:
+            orr r12, r3, r0, lsl#5
+            mcr p15, 0, r1, c7, c10, 4
+            mcr p15, 0, r12, c7, c14, 2
+            add r0, #1
+            cmp r0, #0x20
+            bcc _flushCache
+        add r2, #1
+        cmp r2, #4
+        bcc flushCache
 
-    jumpToEntrypoint:
-        MCR     p15, 0, R1,c7,c10, 4
-        LDR     R0, =0x42078
-        MCR     p15, 0, R0,c1,c0, 0
-        MCR     p15, 0, R1,c7,c5, 0
-        MCR     p15, 0, R1,c7,c6, 0
-        MCR     p15, 0, R1,c7,c10, 4
-		LDR     R4, =buffer
-        MOV     R1, #0x1FFFFFFC
-		LDR     R2, [R4,#8]
-		STR     R2, [R1]
-		LDR     R0, [R4,#0xC]
-		BX      R0
+    ; Enable MPU
+	mcr p15, 0, R1,c7,c10, 4
+    ldr r0, =0x42078  
+    mcr p15, 0, r0, c1, c0, 0
+    mcr p15, 0, r1, c7, c5, 0
+    mcr p15, 0, r1, c7, c6, 0
+    mcr p15, 0, r1, c7, c10, 4
+	
+	; Jump to payload
+	ldr r1, =address
+	ldr r0, =buffer
+	ldr r2, =0xFFE00
+	bl memcpy
+	ldr r0, =address
+	bx r0
+	
 .pool
-
-KernelMemcpy:
-	MOV     R12, LR
-	STMFD   SP!, {R0-R4}
-	ADD     R2, R2, R0
-
-	_KernelMemcpy:
-		LDR     R3, [R0],#4
-		STR     R3, [R1],#4
-		CMP     R0, R2
-		BLT     _KernelMemcpy
-		LDMFD   SP!, {R0-R4}
-		MOV     LR, R12
-		BX      LR
-.pool
-
-KernelCodeEnd:
-
 .close

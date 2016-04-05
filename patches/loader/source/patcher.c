@@ -152,7 +152,7 @@ static int patch_memory(start, size, pattern, patsize, offset, replace, repsize,
 	u8 *found;
 	int i;
 	u32 at;
-
+	
 	for (i = 0; i < count; i++)
 	{
 		found = boyer_moore(start, size, pattern, patsize);

@@ -151,3 +151,7 @@ bool i2cWriteRegister(u8 dev_id, u8 reg, u8 data) {
 void i2cRebootSystem() {
 	i2cWriteRegister(I2C_DEV_MCU, 0x20, 1 << 2);
 }
+
+void i2cShutdownSystem() {
+	i2cWriteRegister(I2C_DEV_MCU, 0x20, (u8)(1<<0));
+}

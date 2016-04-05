@@ -6,6 +6,7 @@
 _start:
 	b	_kernel_start
 	b	i2cRebootSystem
+	b	i2cShutdownSystem
 		
 	// Kernel code
 	_kernel_start:

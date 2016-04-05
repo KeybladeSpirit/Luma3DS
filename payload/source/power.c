@@ -2,7 +2,7 @@
 #include "firmlaunch.h"
 #include "patches.h"
 
-#define ARM9ADDR	0x08006800
+#define ARM9ADDR 0x08006800
 
 typedef struct
 {
@@ -145,6 +145,7 @@ static u8* boyer_moore(u8 *string, int stringlen, u8 *pat, int patlen)
 	return NULL;
 }
 
+// Currently using : Boyer Moore Alghorithm
 u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 {
 	return boyer_moore(memstart, (int)(memend - memstart), memblock, (int)memsize);
@@ -197,9 +198,10 @@ int patchSignatureChecks(u8* data, u32 size)
 			//Debug("[GOOD] Signature Checks Patch");
 			return 0;
 		}
+		return 1;
 	}
 	Debug("[FAIL] Signature Checks Patch");
-	return 1;
+	return 2;
 }
 
 int patchFirmPartitionUpdate(u8* data, u32 size)
@@ -286,6 +288,7 @@ int patchLoaderModule(u8* data, u32 size)
 		//Debug("[GOOD] Loader Module Hack");
 		return 0;		
 	}
+	Debug("[FAIL] Loader Module Hack");
 	return 1;
 }
 
@@ -418,39 +421,73 @@ void splashScreen()
 	drawSplashString("3DS", 128, 0);
 }
 
+firmType getRequestedFirm()
+{
+	switch(*((u8*)(0x23F00004 + 0x24)))
+	{
+		default:
+		case 0x30: return NATIVE_FIRM;
+		case 0x31: return TWL_FIRM;
+		case 0x32: return AGB_FIRM;	
+	}
+}
+
 void powerFirm()
 {
+	u32 isNew = 0, res = 0;
+	
 	splashScreen();
+	u8* firm = getFirmFromTitle(getRequestedFirm());
 	
-	u8* firm = decryptNativeFirm();
-	
-	if(!firm)
+	if(firm)
+	{
+		if(*((u32*)firm) == 0x4D524946)
+		{
+			firmEntry* entry = (firmEntry*)(firm + 0x40);
+			if(isNew3DS)
+			{
+				int index = 3;
+				if(getRequestedFirm() == NATIVE_FIRM) index = 2;
+				cryptArm9Bin(firm + (u32)entry[index].data);
+				res += patchArm9Loader(firm + (u32)entry[index].data, 0);
+				*((u32*)(firm + 12)) = (u32)0x08006000;
+				isNew = 0x800;
+				if(index == 3) *((u32*)(entry[index].data + 4)) = 0x0801301C;
+			}
+			
+			switch(getRequestedFirm())
+			{
+				case NATIVE_FIRM:
+				{
+					res += patchLoaderModule (firm + (u32)entry[0].data, entry[0].size);
+					res += patchFirmPartitionUpdate (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+					res += patchFirmLaunch (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+					res += patchSignatureChecks (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+					res += patchArm9Mpu (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);		
+					res += patchArm9KernelCode (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+					break;
+				}
+				case TWL_FIRM:
+				case AGB_FIRM:
+				{
+					res += patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
+					break;
+				}
+			}
+			
+			firmLaunchBin(firm);
+		}
+		else
+		{
+			Debug("[ERROR] Could not read FIRM title");
+			res++;
+		}
+	}
+	else
 	{
 		Debug("[ERROR] Could not open FIRM title");
+		res++;
 	}
-	
-	if(*((u32*)firm) != 0x4D524946)
-	{
-		Debug("[ERROR] Could not read FIRM title");
-	}
-	
-	firmEntry* entry = (firmEntry*)(firm + 0x40);
-	u32 isNew = 0, res = 0;
-		
-	if(isNew3DS)
-	{
-		cryptArm9Bin(firm + (u32)entry[2].data);
-		res += patchArm9Loader(firm + (u32)entry[2].data, 0);
-		*((u32*)(firm + 12)) = (u32)0x08006000;
-		isNew = 0x800;
-	}
-	
-	res += patchLoaderModule (firm + (u32)entry[0].data, entry[0].size);
-	res += patchFirmPartitionUpdate (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-	res += patchFirmLaunch (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-	res += patchSignatureChecks (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-	res += patchArm9Mpu (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);		
-	res += patchArm9KernelCode (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
 	
 	if(res)
 	{
@@ -462,6 +499,5 @@ void powerFirm()
 			if(key & BUTTON_A) return;
 		}
 	}
-	firmLaunchBin(firm);
 }
 

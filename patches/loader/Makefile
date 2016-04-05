@@ -20,7 +20,7 @@ include $(DEVKITARM)/3ds_rules
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source
-DATA		:=	data
+DATA		:=	data stubs
 INCLUDES	:=	include
 
 #---------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu99
 ASFLAGS	:=	$(ARCH)
 LDFLAGS	=	-flto -Xlinker --defsym="__start__=0x14000000" -specs=../tools/3dsx.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= ../tools/libctru.a 
+LIBS	:= ../tools/libctru.a
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing

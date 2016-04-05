@@ -108,6 +108,7 @@ void screenInit(void){
 	if(!(*(u32*)0x23FFFE00 >= 0x18000000 && *(u32*)0x23FFFE00 < 0x18600000) && !(*(u32*)0x23FFFE00 >= 0x20000000 && *(u32*)0x23FFFE00 < 0x28000000))
 	{
 		*((vu32*)0x1FFFFFF8) = (u32)ARM11;
+		*((vu32*)0x1FFFFFFC) = (u32)ARM11;
 		for(volatile unsigned int i = 0; i < 0xF; ++i);
 		while(*(volatile uint32_t *)0x1FFFFFF8 != 0);
 	}

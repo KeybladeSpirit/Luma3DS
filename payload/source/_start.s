@@ -2,6 +2,10 @@
 .align 4
 .global _start
 _start:
+	b start
+	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+start:
     @ Change the stack pointer
     mov sp, #0x27000000
 
@@ -46,7 +50,7 @@ _start:
     mcr p15, 0, r5, c7, c5, 0  @ flush I-cache
     mcr p15, 0, r5, c7, c6, 0  @ flush D-cache
     mcr p15, 0, r5, c7, c10, 4 @ drain write buffer
-
+	
     bl main
 
 .die:

@@ -16,10 +16,12 @@ void keysInit()
 
 int main()
 {
+	*(u32*)0x10000020 = 0;
+    *(u32*)0x10000020 = 0x340;
 	screenInit();
 	keysInit();
 	fsInit();
-	
+
 	powerFirm();
 	
 	fsExit();

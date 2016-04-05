@@ -273,9 +273,67 @@ int patchArm9Loader(u8* data, u32 size)
 	return 0;
 }
 
+int patchAgbBootSplash(u8* data, u32 size)
+{
+	u8 stockCode[] = {0x00, 0x00, 0x01, 0xEF};
+	u8* buffer = memSearch(data, data + size, stockCode, 4);
+	if(buffer)
+	{
+		*((u32*)(buffer)) = 0xEF260000;
+		//Debug("[GOOD] ARM9 AGB Boot Splash");
+		return 0;
+
+	}
+	Debug("[FAIL] ARM9 AGB Boot Splash\n");
+	return 1;
+}
+
+int patchTwlChecks(u8* data, u32 size)
+{
+	// This all belongs to TuxSH and Steveice10 work
+	int res = 0;
+	u8* buffer;
+	
+	// Patch RSA function to not report invalid signatures
+	buffer = memSearch(data, data + size, (u8[8]){0x00, 0x20, 0xF6, 0xE7, 0x7F, 0xB5, 0x04, 0x00}, 8);
+	if(buffer)
+	{
+		*((u16*)(buffer)) = 0x2001;
+	}else res++;
+	
+	// Disable whitelist check
+	buffer = memSearch(data, data + size, (u8[4]){0xFF, 0xF7, 0xB6, 0xFB}, 4);
+	if(buffer)
+	{
+		*((u32*)(buffer)) = 0x00002000;
+	}else res++;
+	
+	// Disable cartridge blacklist, save type, DSi cartridge save exploit checks
+	buffer = memSearch(data, data + size, isNew3DS ? (u8[6]){0x20, 0x00, 0x0E, 0xF0, 0x15, 0xFE} : (u8[6]){0x20, 0x00, 0x0E, 0xF0, 0xF9, 0xFD}, 6);
+	if(buffer)
+	{
+		u8 patch[] = {0x01, 0x20, 0x00, 0x00};
+		memcpy((void*)(buffer + 02), (void*)patch, 4);
+		memcpy((void*)(buffer + 14), (void*)patch, 4);
+		memcpy((void*)(buffer + 26), (void*)patch, 4);
+	}else res++;
+	
+	// Disable SHA check
+	buffer = memSearch(data, data + size, (u8[4]){0x10, 0xB5, 0x14, 0x22}, 4);
+	if(buffer)
+	{
+		*((u32*)(buffer)) = 0x47702001;
+	}else res++;
+	
+	if(res) Debug("[FAIL] ARM9 TWL Checks Bypass\n");
+	//else if(res) Debug("[GOOD] ARM9 TWL Checks Bypass\n");
+	
+	return res;
+}
+
 int patchLoaderModule(u8* data, u32 size)
 {
-	u8* buffer = memSearch(data, data + size, "loader", 7);
+	u8* buffer = memSearch(data, data + size, (u8*)"loader", 7);
 	if(buffer)
 	{
 		buffer -= 0x200;
@@ -446,13 +504,20 @@ void powerFirm()
 			firmEntry* entry = (firmEntry*)(firm + 0x40);
 			if(isNew3DS)
 			{
-				int index = 3;
-				if(getRequestedFirm() == NATIVE_FIRM) index = 2;
-				cryptArm9Bin(firm + (u32)entry[index].data);
-				res += patchArm9Loader(firm + (u32)entry[index].data, 0);
+				if(getRequestedFirm() == NATIVE_FIRM)
+				{
+					cryptArm9Bin(firm + (u32)entry[2].data);
+					res += patchArm9Loader(firm + (u32)entry[2].data, 0);
+					*((u32*)(entry[2].data + 4)) = 0x801B01C;
+				}
+				else
+				{
+					cryptArm9Bin(firm + (u32)entry[3].data);
+					res += patchArm9Loader(firm + (u32)entry[3].data, 0);
+					*((u32*)(entry[3].data + 4)) = 0x0801301C;
+				}
 				*((u32*)(firm + 12)) = (u32)0x08006000;
 				isNew = 0x800;
-				if(index == 3) *((u32*)(entry[index].data + 4)) = 0x0801301C;
 			}
 			
 			switch(getRequestedFirm())
@@ -468,13 +533,18 @@ void powerFirm()
 					break;
 				}
 				case TWL_FIRM:
+				{
+					res += patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
+					patchTwlChecks(firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					break;
+				}
 				case AGB_FIRM:
 				{
 					res += patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
+					res += patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
 					break;
 				}
-			}
-			
+			}		
 			firmLaunchBin(firm);
 		}
 		else

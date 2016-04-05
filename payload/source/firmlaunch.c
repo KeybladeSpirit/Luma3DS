@@ -31,7 +31,7 @@ void firmLaunchFile(char* filename, unsigned int offset)
 	}
 }
 
-fsFile* findTitleContent(u32 tid_low, u32 tid_high)
+fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 {
 	// Searches for the latest content installed, and returns
 	// a file pointer to its NCCH.
@@ -40,7 +40,7 @@ fsFile* findTitleContent(u32 tid_low, u32 tid_high)
 	char str[256], fdir[256];
 	u32 tid = 0;
 	
-	sprintf(fdir, "nand:/title/%08X/%08X/content", tid_low, tid_high);
+	sprintf(fdir, "nand:/title/%08X/%08X/content", tid_high, tid_low);
 	if(f_opendir(&dir, fdir) != FR_OK) return 0;
 	while(f_readdir(&dir, &info) == FR_OK)
 	{
@@ -69,7 +69,7 @@ fsFile* findTitleContent(u32 tid_low, u32 tid_high)
 u8* getFirmFromTitle(firmType tid)
 {
 	// Decrypts firm from the installed title
-	if(isNew3DS) tid != 0x20000000;
+	if(isNew3DS) tid |= 0x20000000;
 	fsFile* file = findTitleContent(0x00040138, tid);
 	if(file)
 	{

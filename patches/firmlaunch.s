@@ -3,7 +3,6 @@
 
 .definelabel fileHandle,	0x2000A000
 .definelabel tmpVar,		0x2000E000
-.definelabel buffer,		0x24000000
 .definelabel address,		0x23F00000
 .definelabel fileOpen,		0xBADC0DED	; Will be set during patching
 
@@ -43,13 +42,13 @@ loadPayload:
 	
 	ldr r0, =fileHandle
     ldr r1, =tmpVar
-    ldr r2, =buffer
+    ldr r2, =address
     ldr r3, =0xFFE00
 	ldr r6, [sp,#0x3A8-0x198]
 	ldr r6, [r6,#0x28]	; fread(handle, bytes, buffer, size)
 	blx r6
 	
-	ldr r1, =buffer+4
+	ldr r1, =address+4
 	add r0, sp, #0x3A8-0x70	
 	mov r2, #0x38
 	bl memcpy
@@ -152,10 +151,6 @@ kernelEntry:
     mcr p15, 0, r1, c7, c10, 4
 	
 	; Jump to payload
-	ldr r1, =address
-	ldr r0, =buffer
-	ldr r2, =0xFFE00
-	bl memcpy
 	ldr r0, =address
 	bx r0
 	

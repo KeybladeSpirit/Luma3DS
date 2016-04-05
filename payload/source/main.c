@@ -4,6 +4,8 @@
 
 void keysInit()
 {
+	*(u32*)0x10000020 = 0;
+    *(u32*)0x10000020 = 0x340;
 	if(isNew3DS)
 	{
 		// CTRNAND Keyslot 0x05 initialization
@@ -16,8 +18,6 @@ void keysInit()
 
 int main()
 {
-	*(u32*)0x10000020 = 0;
-    *(u32*)0x10000020 = 0x340;
 	screenInit();
 	keysInit();
 	fsInit();

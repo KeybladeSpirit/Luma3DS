@@ -508,13 +508,13 @@ void powerFirm()
 				{
 					cryptArm9Bin(firm + (u32)entry[2].data);
 					res += patchArm9Loader(firm + (u32)entry[2].data, 0);
-					*((u32*)(entry[2].data + 4)) = 0x801B01C;
+					*((u32*)(firm + (u32)entry[2].data + 4)) = 0x801B01C;
 				}
 				else
 				{
 					cryptArm9Bin(firm + (u32)entry[3].data);
 					res += patchArm9Loader(firm + (u32)entry[3].data, 0);
-					*((u32*)(entry[3].data + 4)) = 0x0801301C;
+					*((u32*)(firm + (u32)entry[2].data + 4)) = 0x0801301C;
 				}
 				*((u32*)(firm + 12)) = (u32)0x08006000;
 				isNew = 0x800;

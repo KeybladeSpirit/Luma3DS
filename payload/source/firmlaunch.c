@@ -37,11 +37,13 @@ fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 	// a file pointer to its NCCH.
     DIR dir;
 	FILINFO info;
-	char str[256], fdir[256];
+	char str[256];
+	static char fdir[256];
 	u32 tid = 0;
 	
 	sprintf(fdir, "nand:/title/%08X/%08X/content", tid_high, tid_low);
-	if(f_opendir(&dir, fdir) != FR_OK) return 0;
+
+	if(f_opendir(&dir, &fdir[0]) != FR_OK) return 0;
 	while(f_readdir(&dir, &info) == FR_OK)
 	{
 		if(strstr(info.fname, ".app") || strstr(info.fname, ".APP"))
@@ -57,7 +59,7 @@ fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 	}
 	f_closedir(&dir);
 	
-	sprintf(str, "%s/%08X.app", fdir, tid);
+	sprintf(str, "%s/%08X.APP", fdir, tid);
 	fsFile *tmp = fsOpen(str, 1);
 	if(tmp)
 	{
@@ -69,8 +71,17 @@ fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 u8* getFirmFromTitle(firmType tid)
 {
 	// Decrypts firm from the installed title
-	if(isNew3DS) tid |= 0x20000000;
-	fsFile* file = findTitleContent(0x00040138, tid);
+	if(isNew3DS)
+	{
+		switch(tid)
+		{
+			case NATIVE_FIRM: tid = NEW_NATIVE_FIRM; break;
+			case AGB_FIRM	: tid = NEW_AGB_FIRM; break;
+			case TWL_FIRM	: tid = NEW_TWL_FIRM; break;
+			default : break;
+		}
+	}
+	fsFile* file = findTitleContent((u32)0x00040138, (u32)tid);
 	if(file)
 	{
 		// Read NCCH from file

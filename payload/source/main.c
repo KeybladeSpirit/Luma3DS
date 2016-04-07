@@ -21,7 +21,7 @@ int main()
 	screenInit();
 	keysInit();
 	fsInit();
-
+	
 	powerFirm();
 	
 	fsExit();

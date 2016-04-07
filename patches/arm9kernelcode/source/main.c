@@ -29,6 +29,10 @@ void memCopy(u8* dst, u8* src, u32 size)
 
 int main()
 {
-	
+	u32 pad = getHid();
+	if(pad & BUTTON_A && pad & BUTTON_B && pad & BUTTON_X && pad & BUTTON_Y && pad & BUTTON_L1 && pad & BUTTON_R1)
+	{
+		i2cWriteRegister(I2C_DEV_MCU, 0x20, (u8)(1<<0));
+	}
 	return 0;
 }

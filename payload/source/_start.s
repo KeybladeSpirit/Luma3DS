@@ -3,7 +3,7 @@
 .global _start
 _start:
 	b start
-	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	
 start:
     @ Change the stack pointer

@@ -4,7 +4,7 @@
 #include <string.h>
 
 void screenInit(void){
-	void ARM11(void){
+	void ARM11Init(void){
 		__asm(".word 0xF10C01C0");				//CPSID AIF @ Disable Interrupts
 		*((vu32*)0x10141200) = 0x1007F;			// PDN_GPU_CNT
 		*((vu32*)0x10202014) = 0x00000001;
@@ -103,12 +103,20 @@ void screenInit(void){
 		((void (*)())*((vu32*)0x1FFFFFF8))();
 	}
 	
+	void ARM11(void){
+		__asm(".word 0xF10C01C0");				//CPSID AIF @ Disable Interrupts
+		
+		*((vu32*)0x1FFFFFF8) = 0;
+		while(!*((vu32*)0x1FFFFFF8));
+		((void (*)())*((vu32*)0x1FFFFFF8))();
+	}
+	
 	// In short terms, we initalize the screen just if it still haven't been.
 	// We check if the framebuffer is set.
 	if(!(*(u32*)0x23FFFE00 >= 0x18000000 && *(u32*)0x23FFFE00 < 0x18600000) && !(*(u32*)0x23FFFE00 >= 0x20000000 && *(u32*)0x23FFFE00 < 0x28000000))
 	{
-		*((vu32*)0x1FFFFFF8) = (u32)ARM11;
-		*((vu32*)0x1FFFFFFC) = (u32)ARM11;
+		*((vu32*)0x1FFFFFF8) = (u32)(isColdBoot ? ARM11Init : ARM11);
+		*((vu32*)0x1FFFFFFC) = (u32)(isColdBoot ? ARM11Init : ARM11);
 		for(volatile unsigned int i = 0; i < 0xF; ++i);
 		while(*(volatile uint32_t *)0x1FFFFFF8 != 0);
 	}

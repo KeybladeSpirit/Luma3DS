@@ -89,11 +89,6 @@ mcuShutdownSystem:
 	ldr r0, =0x0801A608
 	.word 0xEF00007B    //SVC 0x7B
 
-fileName:
-	.dcw "sdmc:/arm9loaderhax.bin"
-	.word 0, 0, 0, 0, 0, 0, 0, 0, 0
-.pool
-
 kernelEntry:
 	; MPU settings
 	mrc p15, 0, r0, c2, c0, 0  
@@ -155,4 +150,7 @@ kernelEntry:
 	bx r0
 	
 .pool
+fileName:
+	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .close

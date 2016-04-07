@@ -1,6 +1,7 @@
 #include "power.h"
 #include "firmlaunch.h"
 #include "patches.h"
+#include "fatfs/ff.h"
 
 #define ARM9ADDR 0x08006800
 
@@ -151,6 +152,51 @@ u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 	return boyer_moore(memstart, (int)(memend - memstart), memblock, (int)memsize);
 }
 
+int getPayloadPath(char* path, char* baseDir)
+{
+	// Searches for all the files in the SD, we hope to find the
+	// path of PowerFirm payload.
+    DIR dir;
+	static FILINFO info;
+	char tmp[1024];
+	info.lfname = (char*)0x21000000;
+	info.lfsize = 128 + 1;
+
+	if(f_opendir(&dir, &baseDir[0]) == FR_OK)
+	{
+		while(f_readdir(&dir, &info) == FR_OK)
+		{
+			if(info.fname[0] == 0) break;
+			if(info.fname[0] == '.' || strcmp(info.lfname, "Nintendo 3DS") == 0) continue;
+			
+			sprintf(tmp, "%s/%s", baseDir, info.lfname);
+			
+			if(info.fattrib & AM_DIR)
+			{
+				if(getPayloadPath(path, tmp)) return 1;
+			}
+			else
+			{
+				fsFile* file = fsOpen(tmp, 1);
+				if(file)
+				{
+					fsSeek(file, 0x100);
+					fsRead(0x22000000, 1, 0x100, file);
+					fsClose(file);
+					if(memcmp((void*)0x22000000, (void*)0x23F00100, 0x100) == 0)
+					{
+						strcpy(path, tmp);
+						return 1;
+					}
+				}
+			}
+			memset(info.lfname, 0, info.lfsize);
+		}
+		f_closedir(&dir);		
+	}
+	return 0;
+}
+
 u32 getProcess9Shift(u8* data, u32 size)
 {
 	u8 stockCode[] = {0x30, 0x30, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x30, 0x01, 0x04, 0x00};
@@ -167,6 +213,7 @@ u32 getProcess9Shift(u8* data, u32 size)
 
 int patchFirmLaunch(u8* data, u32 size)
 {
+	char path[128];
 	u8 stockCode[] = { 0xDE, 0x1F, 0x8D, 0xE2, 0x20, 0x20, 0x90, 0xE5, 0x07, 0x00, 0xA0, 0xE1, 0x32, 0xFF, 0x2F, 0xE1};
 	u8* buffer = memSearch(data, data + size, stockCode, 16);
 	if(buffer)
@@ -175,6 +222,12 @@ int patchFirmLaunch(u8* data, u32 size)
 		u32 fopenAddr = (buffer - data) + ARM9ADDR + getProcess9Shift(data, size) + 8 - ((((*((u32*)buffer) & 0x00FFFFFF) << 2)*(-1)) & 0xFFFFF);
 		memcpy(buffer, patches_firmlaunch_bin, patches_firmlaunch_bin_size);
 		*((u32*)memSearch(buffer, buffer + patches_firmlaunch_bin_size, (u8[]){0xED, 0x0D, 0xDC, 0xBA}, 4)) = fopenAddr + 1;
+		getPayloadPath(path, "sdmc:");
+
+		for(int i = 0; i < strlen(path); i++)
+		{
+			*(buffer + patches_firmlaunch_bin_size - 0x80 + i*2) = (u8)path[i];
+		}
 		//Debug("[GOOD] FirmLaunch Patch");
 		return 0;
 	}
@@ -508,7 +561,7 @@ void powerFirm()
 				{
 					cryptArm9Bin(firm + (u32)entry[2].data);
 					res += patchArm9Loader(firm + (u32)entry[2].data, 0);
-					*((u32*)(firm + (u32)entry[2].data + 4)) = 0x801B01C;
+					*((u32*)(firm + (u32)entry[2].data + 4)) = 0x0801B01C;
 				}
 				else
 				{
@@ -535,17 +588,16 @@ void powerFirm()
 				case TWL_FIRM:
 				{
 					res += patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
-					patchTwlChecks(firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					patchTwlChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
 					break;
 				}
 				case AGB_FIRM:
 				{
-					res += patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
-					res += patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
+					patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
 					break;
 				}
 			}		
-			firmLaunchBin(firm);
 		}
 		else
 		{
@@ -569,5 +621,7 @@ void powerFirm()
 			if(key & BUTTON_A) return;
 		}
 	}
+	
+	firmLaunchBin(firm);
 }
 

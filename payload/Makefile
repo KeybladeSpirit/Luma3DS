@@ -42,7 +42,7 @@ CFLAGS	+=	$(INCLUDE)
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
-ASFLAGS	:=	-g $(ARCH) 
+ASFLAGS	:=	-g $(ARCH) -DTIMEDATE='"$(shell date +'%Y%m%d%H%M%S')"'
 LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,$(BUILD)/$(TARGET).map
 
 LDFLAGS += --specs=../bootstrap.specs

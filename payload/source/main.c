@@ -21,8 +21,8 @@ int main()
 	screenInit();
 	keysInit();
 	fsInit();
-	
-	powerFirm();
+
+	powerFirm(NULL);
 	
 	fsExit();
 	i2cWriteRegister(I2C_DEV_MCU, 0x20, (u8)(1<<0));

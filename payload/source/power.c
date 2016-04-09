@@ -3,17 +3,6 @@
 #include "patches.h"
 #include "fatfs/ff.h"
 
-#define ARM9ADDR 0x08006800
-
-typedef struct
-{
-	u32 data;
-	u32 addr;
-	u32 size;
-	u32 type;
-	u8 hash[0x20];
-} firmEntry;
-
 // Below is stolen from http://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string_search_algorithm
 
 #define ALPHABET_LEN 256
@@ -152,11 +141,13 @@ u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 	return boyer_moore(memstart, (int)(memend - memstart), memblock, (int)memsize);
 }
 
+#define ARM9ADDR 0x08006800
+
 int getPayloadPath(char* path, char* baseDir)
 {
 	// Searches for all the files in the SD, we hope to find the
 	// path of PowerFirm payload.
-    DIR dir;
+	DIR dir;
 	static FILINFO info;
 	char tmp[1024];
 	info.lfname = (char*)0x21000000;
@@ -167,10 +158,12 @@ int getPayloadPath(char* path, char* baseDir)
 		while(f_readdir(&dir, &info) == FR_OK)
 		{
 			if(info.fname[0] == 0) break;
-			if(info.fname[0] == '.' || strcmp(info.lfname, "Nintendo 3DS") == 0) continue;
+			if(info.fname[0] == '.') continue;
+			if(strcmp(info.lfname, "System Volume Information") == 0) continue;
+			if(strcmp(info.lfname, "Nintendo 3DS") == 0) continue;
 			
 			sprintf(tmp, "%s/%s", baseDir, info.lfname);
-			
+
 			if(info.fattrib & AM_DIR)
 			{
 				if(getPayloadPath(path, tmp)) return 1;
@@ -180,12 +173,16 @@ int getPayloadPath(char* path, char* baseDir)
 				fsFile* file = fsOpen(tmp, 1);
 				if(file)
 				{
-					fsSeek(file, 0x100);
-					fsRead(0x22000000, 1, 0x100, file);
+					extern u32 payloadCheckStr, _start;
+					fsSeek(file, (u32)(&payloadCheckStr - &_start)*4);
+					fsRead((void*)0x22000000, 1, 0x20, file);
 					fsClose(file);
-					if(memcmp((void*)0x22000000, (void*)0x23F00100, 0x100) == 0)
+					if(memcmp((void*)0x22000000, (void*)&payloadCheckStr, 0x20) == 0)
 					{
-						strcpy(path, tmp);
+						char* _path = &tmp[0];
+						while(*_path == '/') _path++;
+						strcpy(path, "sdmc:/");
+						strcat(path, _path);
 						return 1;
 					}
 				}
@@ -195,6 +192,49 @@ int getPayloadPath(char* path, char* baseDir)
 		f_closedir(&dir);		
 	}
 	return 0;
+}
+
+void cryptArm9Bin(u8* buf)
+{
+	u8* key2;
+	u8 secretKeys[][16] = {
+		{0x07, 0x29, 0x44, 0x38, 0xF8, 0xC9, 0x75, 0x93, 0xAA, 0x0E, 0x4A, 0xB4, 0xAE, 0x84, 0xC1, 0xD8},
+		{0x42, 0x3F, 0x81, 0x7A, 0x23, 0x52, 0x58, 0x31, 0x6E, 0x75, 0x8E, 0x3A, 0x39, 0x43, 0x2E, 0xD0}
+	};
+	if(*((u32*)(buf + 0x50)) == 0x324C394B) key2 = secretKeys[1];
+	else key2 = secretKeys[0];
+	
+	// Firm keys
+	u8 keyX[0x10];
+	u8 keyY[0x10];
+	u8 CTR[0x10];
+	u32 slot = 0x16;
+	
+	// Setup keys needed for arm9bin decryption
+	memcpy((u8*)keyY, (void *)((uintptr_t)buf+0x10), 0x10);
+	memcpy((u8*)CTR, (void *)((uintptr_t)buf+0x20), 0x10);
+	u32 size = atoi((void *)((uintptr_t)buf+0x30));
+	
+	// Set 0x11 to key2 for the arm9bin and misc keys
+	aes_setkey(0x11, (u8*)key2, AES_KEYNORMAL, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_use_keyslot(0x11);
+	
+	// Set 0x16 keyX, keyY and CTR
+	if(*((u32*)(buf + 0x100)) == 0)
+	{
+		aes((u8*)keyX, (void *)((uintptr_t)buf+0x60), 1, NULL, AES_ECB_DECRYPT_MODE, 0);
+	}
+	else
+	{
+		aes((u8*)keyX, (void *)((uintptr_t)buf+0x00), 1, NULL, AES_ECB_DECRYPT_MODE, 0);
+	}
+	aes_setkey(slot, (u8*)keyX, AES_KEYX, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_setkey(slot, (u8*)keyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_setiv((u8*)CTR, AES_INPUT_BE | AES_INPUT_NORMAL);
+	aes_use_keyslot(slot);
+	
+	//Decrypt arm9bin
+	aes((void *)(buf+0x800), (void *)(buf+0x800), size/AES_BLOCK_SIZE, CTR, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
 }
 
 u32 getProcess9Shift(u8* data, u32 size)
@@ -222,7 +262,7 @@ int patchFirmLaunch(u8* data, u32 size)
 		u32 fopenAddr = (buffer - data) + ARM9ADDR + getProcess9Shift(data, size) + 8 - ((((*((u32*)buffer) & 0x00FFFFFF) << 2)*(-1)) & 0xFFFFF);
 		memcpy(buffer, patches_firmlaunch_bin, patches_firmlaunch_bin_size);
 		*((u32*)memSearch(buffer, buffer + patches_firmlaunch_bin_size, (u8[]){0xED, 0x0D, 0xDC, 0xBA}, 4)) = fopenAddr + 1;
-		getPayloadPath(path, "sdmc:");
+		getPayloadPath(path, "");
 
 		for(int i = 0; i < strlen(path); i++)
 		{
@@ -294,7 +334,6 @@ int patchArm9KernelCode(u8* data, u32 size)
 		*((u32*)returnAddr) = kernelReturn;
 		//Debug("[GOOD] Kernel9 Custom Code");
 		return 0;
-
 	}
 	Debug("[FAIL] Kernel9 Custom Code");
 	return 1;
@@ -322,6 +361,7 @@ int patchArm9Mpu(u8* data, u32 size)
 int patchArm9Loader(u8* data, u32 size)
 {
 	//Debug("[GOOD] ARM9 Loader Fix");
+	cryptArm9Bin(data);
 	memset((void*)data, 0x00, 0x800);
 	memcpy((void*)data, patches_arm9loader_bin, patches_arm9loader_bin_size);
 	return 0;
@@ -404,47 +444,16 @@ int patchLoaderModule(u8* data, u32 size)
 	return 1;
 }
 
-void cryptArm9Bin(u8* buf)
+firmType getRequestedFirm()
 {
-	u8* key2;
-	u8 secretKeys[][16] = {
-		{0x07, 0x29, 0x44, 0x38, 0xF8, 0xC9, 0x75, 0x93, 0xAA, 0x0E, 0x4A, 0xB4, 0xAE, 0x84, 0xC1, 0xD8},
-		{0x42, 0x3F, 0x81, 0x7A, 0x23, 0x52, 0x58, 0x31, 0x6E, 0x75, 0x8E, 0x3A, 0x39, 0x43, 0x2E, 0xD0}
-	};
-	if(*((u32*)(buf + 0x50)) == 0x324C394B) key2 = secretKeys[1];
-	else key2 = secretKeys[0];
-	
-	// Firm keys
-	u8 keyX[0x10];
-	u8 keyY[0x10];
-	u8 CTR[0x10];
-	u32 slot = 0x16;
-	
-	// Setup keys needed for arm9bin decryption
-	memcpy((u8*)keyY, (void *)((uintptr_t)buf+0x10), 0x10);
-	memcpy((u8*)CTR, (void *)((uintptr_t)buf+0x20), 0x10);
-	u32 size = atoi((void *)((uintptr_t)buf+0x30));
-	
-	// Set 0x11 to key2 for the arm9bin and misc keys
-	aes_setkey(0x11, (u8*)key2, AES_KEYNORMAL, AES_INPUT_BE | AES_INPUT_NORMAL);
-	aes_use_keyslot(0x11);
-	
-	// Set 0x16 keyX, keyY and CTR
-	if(*((u32*)(buf + 0x100)) == 0)
+	extern u32 reqFirmwareStr;
+	switch(*((u8*)&reqFirmwareStr + 0x24))
 	{
-		aes((u8*)keyX, (void *)((uintptr_t)buf+0x60), 1, NULL, AES_ECB_DECRYPT_MODE, 0);
+		default:
+		case 0x30: return NATIVE_FIRM;
+		case 0x31: return TWL_FIRM;
+		case 0x32: return AGB_FIRM;	
 	}
-	else
-	{
-		aes((u8*)keyX, (void *)((uintptr_t)buf+0x00), 1, NULL, AES_ECB_DECRYPT_MODE, 0);
-	}
-	aes_setkey(slot, (u8*)keyX, AES_KEYX, AES_INPUT_BE | AES_INPUT_NORMAL);
-	aes_setkey(slot, (u8*)keyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
-	aes_setiv((u8*)CTR, AES_INPUT_BE | AES_INPUT_NORMAL);
-	aes_use_keyslot(slot);
-	
-	//Decrypt arm9bin
-	aes((void *)(buf+0x800), (void *)(buf+0x800), size/AES_BLOCK_SIZE, CTR, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
 }
 
 extern const unsigned char font[];
@@ -533,24 +542,13 @@ void splashScreen()
 	drawSplashString("3DS", 128, 0);
 }
 
-firmType getRequestedFirm()
-{
-	switch(*((u8*)(0x23F00004 + 0x24)))
-	{
-		default:
-		case 0x30: return NATIVE_FIRM;
-		case 0x31: return TWL_FIRM;
-		case 0x32: return AGB_FIRM;	
-	}
-}
-
-void powerFirm()
+void powerFirm(u8* firm)
 {
 	u32 isNew = 0, res = 0;
 	
 	splashScreen();
-	u8* firm = getFirmFromTitle(getRequestedFirm());
 	
+	if(!firm) firm = getFirmFromTitle(getRequestedFirm());	
 	if(firm)
 	{
 		if(*((u32*)firm) == 0x4D524946)
@@ -560,17 +558,15 @@ void powerFirm()
 			{
 				if(getRequestedFirm() == NATIVE_FIRM)
 				{
-					cryptArm9Bin(firm + (u32)entry[2].data);
 					res += patchArm9Loader(firm + (u32)entry[2].data, 0);
-					*((u32*)(firm + (u32)entry[2].data + 4)) = 0x0801B01C;
-					*((u32*)(firm + 12)) = (u32)0x08006000;
+					*((u32*)(firm + (u32)entry[2].data + 4)) = (u32)0x0801B01C;
+					*((u32*)(firm + 12)) = (u32)entry[2].addr;
 				}
 				else
 				{
-					cryptArm9Bin(firm + (u32)entry[3].data);
 					res += patchArm9Loader(firm + (u32)entry[3].data, 0);
-					*((u32*)(firm + (u32)entry[3].data + 4)) = 0x0801301C;
-					*((u32*)(firm + 12)) = (u32)0x08006000;
+					*((u32*)(firm + (u32)entry[3].data + 4)) = (u32)0x0801301C;
+					*((u32*)(firm + 12)) = (u32)entry[3].addr;
 				}
 				isNew = 0x800;
 			}
@@ -589,13 +585,13 @@ void powerFirm()
 				}
 				case TWL_FIRM:
 				{
-					res += patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
-					patchTwlChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					// patchTwlChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
 					break;
 				}
 				case AGB_FIRM:
 				{
-					patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew) - 1;
+					patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
 					patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
 					break;
 				}

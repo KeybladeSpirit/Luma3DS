@@ -3,7 +3,15 @@
 .global _start
 _start:
 	b start
-	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+.global payloadCheckStr
+payloadCheckStr:
+	.ascii TIMEDATE
+	.org ((payloadCheckStr - _start) + 0x20)
+	
+.global reqFirmwareStr
+reqFirmwareStr:
+	.org ((reqFirmwareStr - _start) + 0x3C)
 	
 start:
     @ Change the stack pointer

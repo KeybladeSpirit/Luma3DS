@@ -326,9 +326,9 @@ int patchArm9KernelCode(u8* data, u32 size)
 		buffer += 0x10;
 		u32 kernelReturn = (buffer - data) + 8 + ARM9ADDR;
 		*((u32*)(buffer + 0)) = (u32)0xE51FF004;	// LDR PC, [PC,#-4]
-		*((u32*)(buffer + 4)) = (u32)0x0801A600;	// Our Code
+		*((u32*)(buffer + 4)) = (u32)0x0801A500;	// Our Code
 		u32 magicWord = 0xDEADC0DE;	
-		buffer = data + 0x13E00;
+		buffer = data + 0x13D00;
 		memcpy((void*)buffer, patches_arm9kernelcode_bin, patches_arm9kernelcode_bin_size);
 		u8* returnAddr = memSearch(buffer, buffer + patches_arm9kernelcode_bin_size, (u8*)&magicWord, 4);
 		*((u32*)returnAddr) = kernelReturn;

@@ -473,6 +473,7 @@ int patchLoaderModule(u8* data, u32 size)
 		memcpy(backup, buffer + backupOffset, backupSize);
 		memcpy(buffer, patches_loader_bin, patches_loader_bin_size);
 		memcpy(buffer + patches_loader_bin_size, backup, backupSize);
+		*(buffer + 0xC02) = curConfig->regionFree;
 		//Debug("[GOOD] Loader Module Hack");
 		return 0;		
 	}

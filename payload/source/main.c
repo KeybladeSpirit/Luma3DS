@@ -6,7 +6,7 @@ void keysInit()
 {
 	*(u32*)0x10000020 = 0;
     *(u32*)0x10000020 = 0x340;
-	if(isNew3DS)
+	if(isNew3DS && isColdBoot)
 	{
 		// CTRNAND Keyslot 0x05 initialization
 		u8* buf = (u8*)0x21000000;

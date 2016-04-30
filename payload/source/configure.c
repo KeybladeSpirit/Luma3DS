@@ -17,6 +17,7 @@ void configMenu()
 		Debug("%c Signatures checks patch      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("%c GBA boot screen animation    %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("%c ARM9 exception debugger      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c Home Menu region unlock      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("%c Classic mode (Stock system)  %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("");
 		Debug("");

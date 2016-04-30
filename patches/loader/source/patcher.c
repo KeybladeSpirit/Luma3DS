@@ -196,7 +196,8 @@ int patch_code(u64 progid, u8 *code, u32 size)
 		case 0x000400300000B102LL:
 		{
 			// Home Menu
-			patch_memory(code, size, region_free_pattern, sizeof(region_free_pattern), -16, region_free_patch, sizeof(region_free_patch), 1);
+			if(*((u8*)(0x14000004)))
+				patch_memory(code, size, region_free_pattern, sizeof(region_free_pattern), -16, region_free_patch, sizeof(region_free_patch), 1);
 			break;
 		}
 		case 0x0004013000002C02LL:

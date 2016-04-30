@@ -9,6 +9,7 @@ typedef struct
 	u8 signPatch;
 	u8 gbaAnim;
 	u8 excDebug;
+	u8 regionFree;
 	u8 cleanMode;
 } configData;
 

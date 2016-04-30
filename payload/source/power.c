@@ -574,9 +574,9 @@ void splashScreen()
 	if(!isColdBoot) return;
 	if(!curConfig->bootAnim) return;
 	ClearScreenFull(1, 1);
-	DrawStringF(10, 10, 1, "[L] : Configuration Menu");
-	DrawStringF(10, 220, 1, VERSION);
-	DrawStringF(208, 220, 1, "@2016, Jason Dellaluce");
+	DrawString(TOP_SCREEN0, "[L] : Configuration Menu", 10, 10, COLOR_BLUE, COLOR_BLACK);
+	DrawString(TOP_SCREEN0, VERSION, 10, 220, COLOR_WHITE, COLOR_BLACK);
+	DrawString(TOP_SCREEN0, "@2016, Jason Dellaluce", 208, 220, COLOR_WHITE, COLOR_BLACK);
 	drawSplashString("PowerFirm", 88, 1);
 	drawSplashString("3DS", 128, 0);
 }

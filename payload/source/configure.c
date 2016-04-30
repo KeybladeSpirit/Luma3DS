@@ -13,12 +13,12 @@ void configMenu()
 		Debug("PowerFirm - Configuration Menu");
 		Debug("");
 		Debug("");
-		Debug("%c PowerFirm boot animation     %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c Signatures checks patch      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c GBA boot screen animation    %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c ARM9 exception debugger      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c Home Menu region unlock      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c Classic mode (Stock system)  %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c PowerFirm Boot Animation     %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c Classic Mode (Stock System)  %s", (sel == cur) ? '-' : ' ', !*((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c Signatures Checks Bypass     %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c ARM9 Exception Debugger      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c GBA Boot-Screen Animation    %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c Home Menu Region-Free        %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("");
 		Debug("");
 		Debug("Up/Down    : Select option");

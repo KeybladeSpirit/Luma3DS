@@ -73,13 +73,12 @@ void memset(void* dst, u8 val, u32 size)
 	}
 }
 
-void handleException(u32* regs, char* type)
+void handleException(u32* regs, char* type, char* cpu)
 {
 	// Hook ARM11 in order to control the screen
 	arm11Access();
 	memset((void*)frameBuf, 0x00, 0x46500);
-	memcpy((void*)0x1FFF4B20, (void*)&hookSwi, 0x100);
-	armBranch((void*)(0x1FFF4008), (void*)0x1FFF4B20);
+	armBranch((void*)(0x1FFF4008), (void*)0x1FFF4C00);
 	
 	// Print debug info on the screen
 	char* tmpStr = "R00 = 00000000    R00 = 00000000";
@@ -88,7 +87,7 @@ void handleException(u32* regs, char* type)
 		line = 0;
 		drawStr("POWERFIRM - DEBUGGER");
 		line++;
-		drawStr("ARM9");
+		drawStr(cpu);
 		drawStr(type);
 		line++;
 		

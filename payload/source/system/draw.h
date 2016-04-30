@@ -36,6 +36,7 @@ void DrawString(unsigned char *screen, const char *str, int x, int y, int color,
 void DrawStringF(int x, int y, bool use_top, const char *format, ...);
 
 void DebugClear();
+void DebugReset();
 void Debug(const char *format, ...);
 
 void ShowProgress(u64 current, u64 total);

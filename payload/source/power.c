@@ -2,6 +2,7 @@
 #include "firmlaunch.h"
 #include "patches.h"
 #include "fatfs/ff.h"
+#include "configure.h"
 
 // Below is stolen from http://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string_search_algorithm
 
@@ -143,8 +144,26 @@ u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 
 #define ARM9ADDR 0x08006800
 
+char* dirToAvoid[] = 
+{
+	"Nintendo 3DS",
+	"System Volume Information",
+	".",
+	"..",
+	"CIAngel",
+	"TIKdevil",
+	"3ds"
+};
+
+char pathBackup[256] = {0};
+
 int getPayloadPath(char* path, char* baseDir)
 {
+	if(strlen(pathBackup) > 1)
+	{
+		strncpy(pathBackup, path, sizeof(pathBackup));
+		return 1;
+	}
 	// Searches for all the files in the SD, we hope to find the
 	// path of PowerFirm payload.
 	DIR dir;
@@ -158,9 +177,16 @@ int getPayloadPath(char* path, char* baseDir)
 		while(f_readdir(&dir, &info) == FR_OK)
 		{
 			if(info.fname[0] == 0) break;
-			if(info.fname[0] == '.') continue;
-			if(strcmp(info.lfname, "System Volume Information") == 0) continue;
-			if(strcmp(info.lfname, "Nintendo 3DS") == 0) continue;
+			bool avoid = 0;
+			for(int i = 0; i < sizeof(dirToAvoid)/sizeof(char*); i++)
+			{
+				if(strcmp(info.lfname, dirToAvoid[i]) == 0)
+				{
+					avoid = 1;
+					break;
+				}
+			}
+			if(avoid) continue;
 			
 			sprintf(tmp, "%s/%s", baseDir, info.lfname);
 
@@ -183,6 +209,7 @@ int getPayloadPath(char* path, char* baseDir)
 						while(*_path == '/') _path++;
 						strcpy(path, "sdmc:/");
 						strcat(path, _path);
+						strncpy(pathBackup, path, sizeof(pathBackup));
 						return 1;
 					}
 				}
@@ -277,6 +304,8 @@ int patchFirmLaunch(u8* data, u32 size)
 
 int patchSignatureChecks(u8* data, u32 size)
 {
+	if(!curConfig->cleanMode) return 0;
+	if(!curConfig->signPatch) return 0;
 	u8 stockCode[] = { 0x70, 0xB5, 0x22, 0x4D, 0x0C, 0x00, 0x69, 0x68, 0xCE, 0xB0, 0xCB, 0x08, 0x01, 0x68, 0x0E, 0x68};
 	u8* buffer = memSearch(data, data + size, stockCode, 16);
 	if(buffer)
@@ -319,6 +348,8 @@ int patchFirmPartitionUpdate(u8* data, u32 size)
 
 int patchArm9KernelCode(u8* data, u32 size)
 {
+	if(!curConfig->cleanMode) return 0;
+	if(!curConfig->excDebug) return 0;
 	u8 stockCodeK[] = {0x03, 0x00, 0x2D, 0xE9, 0xD3, 0xF0, 0x21, 0xE3, 0x0D, 0x00, 0xA0, 0xE1, 0xD2, 0xF0, 0x21, 0xE3};
 	u8* buffer = memSearch(data, data + size, stockCodeK, 16);
 	if(buffer)
@@ -341,6 +372,8 @@ int patchArm9KernelCode(u8* data, u32 size)
 
 int patchArm9Mpu(u8* data, u32 size)
 {
+	if(!curConfig->cleanMode) return 0;
+	if(!curConfig->excDebug) return 0;
 	u8 stockCode[] = {0x00, 0x00, 0x10, 0x10, 0x01, 0x00, 0x00, 0x01};
 	u8* buffer = memSearch(data, data + size, stockCode, 8);
 	if(buffer)
@@ -369,6 +402,8 @@ int patchArm9Loader(u8* data, u32 size)
 
 int patchAgbBootSplash(u8* data, u32 size)
 {
+	if(!curConfig->gbaAnim) return 0;
+	if(!curConfig->cleanMode) return 0;
 	u8 stockCode[] = {0x00, 0x00, 0x01, 0xEF};
 	u8* buffer = memSearch(data, data + size, stockCode, 4);
 	if(buffer)
@@ -427,6 +462,7 @@ int patchTwlChecks(u8* data, u32 size)
 
 int patchLoaderModule(u8* data, u32 size)
 {
+	if(!curConfig->cleanMode) return 0;
 	u8* buffer = memSearch(data, data + size, (u8*)"loader", 7);
 	if(buffer)
 	{
@@ -535,7 +571,9 @@ void drawSplashString(const char* str, int y, bool anim)
 void splashScreen()
 {
 	if(!isColdBoot) return;
+	if(!curConfig->bootAnim) return;
 	ClearScreenFull(1, 1);
+	DrawStringF(10, 10, 1, "[L] : Configuration Menu");
 	DrawStringF(10, 220, 1, VERSION);
 	DrawStringF(208, 220, 1, "@2016, Jason Dellaluce");
 	drawSplashString("PowerFirm", 88, 1);
@@ -547,6 +585,7 @@ void powerFirm(u8* firm)
 	u32 isNew = 0, res = 0;
 	
 	splashScreen();
+	if(getHid() & BUTTON_L1 && isColdBoot) configMenu();
 	
 	if(!firm) firm = getFirmFromTitle(getRequestedFirm());	
 	if(firm)

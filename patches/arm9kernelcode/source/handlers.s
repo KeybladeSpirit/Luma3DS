@@ -1,3 +1,4 @@
+.section .text
 .arm
 .align 4
 
@@ -40,6 +41,7 @@ handleFiq:
 	str	lr, [sp, #-8]
 	bl	storeRegs
 	ldr r1, =handleFiqStr
+	ldr r2, =cpuArm9Str
 	b	handleException
 
 .global	handleInstr
@@ -48,6 +50,7 @@ handleInstr:
 	str	lr, [sp, #-8]
 	bl	storeRegs
 	ldr r1, =handleInstrStr
+	ldr r2, =cpuArm9Str
 	b	handleException	
 
 .global	handleData
@@ -56,6 +59,7 @@ handleData:
 	str	lr, [sp, #-8]
 	bl	storeRegs
 	ldr r1, =handleDataStr
+	ldr r2, =cpuArm9Str
 	b	handleException	
 
 .global	handlePrefetch
@@ -64,35 +68,43 @@ handlePrefetch:
 	str	lr, [sp, #-8]
 	bl	storeRegs
 	ldr r1, =handlePrefetchStr
+	ldr r2, =cpuArm9Str
 	b	handleException	
-
 .pool
-handleFiqStr:		.ascii "FAQ\0"
-handleInstrStr:		.ascii "UNDEFINED INSTRUCTION\0"
-handleDataStr:		.ascii "DATA ABORT\0"
-handlePrefetchStr:	.ascii "PREFETCH ABORT\0"
 
+@ The following will be copied and executed by ARM11
 .align 4
 .global hookSwi
 .type hookSwi, %function
 hookSwi:
+	b setupScreen
+
+setupScreen:
 	cpsid aif
-	loop:
-		mov	r1, #0x18000000
-		add	r0, r1, #0x06F00000
-		mov	r3, #0
+	mov	r1, #0x18000000
+	add	r0, r1, #0x06F00000
+	mov	r3, #0
 	
-		@ Set VRAM
-		str	r1, [r0, #0x568]
-		str	r1, [r0, #0x56C]
+	@ Set VRAM
+	str	r1, [r0, #0x568]
+	str	r1, [r0, #0x56C]
 	
-		@ Set LCD color format and turn off 3D
-		ldrb r1, [r0, #0x570]
-		mov r1, #1
-		strb r1, [r0, #0x570]
+	@ Set LCD color format and turn off 3D
+	ldrb r1, [r0, #0x570]
+	mov r1, #1
+	strb r1, [r0, #0x570]
 	
-		@ Commit changes
-		str	r3, [r0, #0x578]
-		
-		b loop
+	@ Commit changes
+	str	r3, [r0, #0x578]	
+	b setupScreen
+	
+.align 4
+cpuArm9Str:			.ascii "ARM9\0"
+cpuArm11Str:		.ascii "ARM11\0"
+handleFiqStr:		.ascii "FIQ\0"
+handleInstrStr:		.ascii "UNDEFINED INSTRUCTION\0"
+handleDataStr:		.ascii "DATA ABORT\0"
+handlePrefetchStr:	.ascii "PREFETCH ABORT\0"
+.align 4
 .pool
+

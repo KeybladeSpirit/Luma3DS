@@ -82,12 +82,12 @@ memcpy:
 	bx lr
 
 mcuRebootSystem:
-	ldr r0, =0x0801A604
-	.word 0xEF00007B    //SVC 0x7B
+	ldr r0, =0x0801A504
+	.word 0xEF00007B	; svc 0x7B
 		
 mcuShutdownSystem:
-	ldr r0, =0x0801A608
-	.word 0xEF00007B    //SVC 0x7B
+	ldr r0, =0x0801A508
+	.word 0xEF00007B	; svc 0x7B
 
 kernelEntry:
 	; MPU settings

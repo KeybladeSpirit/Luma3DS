@@ -12,3 +12,4 @@ typedef struct
 } firmEntry;
 
 void powerFirm(u8* firm);
+int getPayloadPath(char* path, char* baseDir);

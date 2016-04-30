@@ -101,7 +101,11 @@ void DebugClear()
 {
     memset(debugstr, 0x00, DBG_N_CHARS_X * DBG_N_CHARS_Y);
     ClearScreen(TOP_SCREEN0, SCREEN_WIDTH_TOP, DBG_COLOR_BG);
-    ClearScreen(TOP_SCREEN1, SCREEN_WIDTH_TOP, DBG_COLOR_BG);
+}
+
+void DebugReset()
+{
+    memset(debugstr, 0x00, DBG_N_CHARS_X * DBG_N_CHARS_Y);
 }
 
 int firstTime = 0;
@@ -127,7 +131,6 @@ void Debug(const char *format, ...)
     for (char* str = debugstr + (DBG_N_CHARS_X * (DBG_N_CHARS_Y - 1)); str >= debugstr; str -= DBG_N_CHARS_X) {
         if (str[0] != '\0') {
             DrawString(TOP_SCREEN0, str, DBG_START_X, pos_y, DBG_COLOR_FONT, DBG_COLOR_BG);
-            DrawString(TOP_SCREEN1, str, DBG_START_X, pos_y, DBG_COLOR_FONT, DBG_COLOR_BG);
             pos_y += DBG_STEP_Y;
         }
     }

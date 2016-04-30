@@ -13,6 +13,10 @@ payloadCheckStr:
 reqFirmwareStr:
 	.org ((reqFirmwareStr - _start) + 0x3C)
 	
+.global configurationData
+configurationData:
+	.fill 0x10, 0x01, 1
+	
 start:
     @ Change the stack pointer
     mov sp, #0x27000000

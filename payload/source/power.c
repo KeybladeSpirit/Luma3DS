@@ -574,7 +574,7 @@ void splashScreen()
 	if(!isColdBoot) return;
 	if(!curConfig->bootAnim) return;
 	ClearScreenFull(1, 1);
-	DrawString(TOP_SCREEN0, "[L] : Configuration Menu", 10, 10, COLOR_BLUE, COLOR_BLACK);
+	DrawString(TOP_SCREEN0, "[L] : Options", 10, 10, COLOR_WHITE, COLOR_BLACK);
 	DrawString(TOP_SCREEN0, VERSION, 10, 220, COLOR_WHITE, COLOR_BLACK);
 	DrawString(TOP_SCREEN0, "@2016, Jason Dellaluce", 208, 220, COLOR_WHITE, COLOR_BLACK);
 	drawSplashString("PowerFirm", 88, 1);

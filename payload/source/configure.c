@@ -1,5 +1,6 @@
 #include "configure.h"
 #include "power.h"
+#include "browser.h"
 
 void configMenu()
 {
@@ -10,7 +11,7 @@ void configMenu()
 	{
 		int cur = 0;
 		DebugReset();
-		Debug("PowerFirm - Configuration Menu");
+		Debug("PowerFirm - Options Menu");
 		Debug("");
 		Debug("");
 		Debug("%c PowerFirm Boot Animation     %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
@@ -19,11 +20,10 @@ void configMenu()
 		Debug("%c ARM9 Exception Debugger      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("%c GBA Boot-Screen Animation    %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		Debug("%c Home Menu Region-Free        %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("");
-		Debug("");
-		Debug("Up/Down    : Select option");
-		Debug("Left/Right : Change option");
-		Debug("Start      : Save changes and reboot");
+		DrawString(TOP_SCREEN0, "Up/Down    : Select option", 10, 190, COLOR_WHITE, COLOR_BLACK);
+		DrawString(TOP_SCREEN0, "Left/Right : Change option", 10, 200, COLOR_WHITE, COLOR_BLACK);
+		DrawString(TOP_SCREEN0, "Start      : Save changes and reboot", 10, 210, COLOR_WHITE, COLOR_BLACK);
+		DrawString(TOP_SCREEN0, "Select     : Run another payload", 10, 220, COLOR_WHITE, COLOR_BLACK);
 		
 		u32 pad = waitHid();
 		if(pad & BUTTON_UP && sel > 0) sel--;
@@ -41,6 +41,11 @@ void configMenu()
 				fsClose(file);
 			}
 			break;
+		}
+		if(pad & BUTTON_SELECT)
+		{
+			fileBrowser("sdmc:/", &loadPayload);
+			DebugClear();
 		}
 	}
 	i2cWriteRegister(I2C_DEV_MCU, 0x20, 1 << 2);

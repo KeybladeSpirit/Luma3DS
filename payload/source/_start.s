@@ -67,3 +67,30 @@ start:
 
 .die:
     b .die
+	
+.pool
+
+.align 4
+.global payloadLoader
+payloadLoader:
+	@ Will run at 0x24000000, or wherever you prefer
+	mov r1, #0x24000000
+	mov r0, #0x21000000
+	mov r2, #0x00100000
+	sub r1, r1, r2
+	sub r2, r2, #0x200
+	mov r4, #0
+	_memcpy:
+		ldr r3, [r0, r4]
+		str r3, [r1, r4]
+		add r4, r4, #4
+		cmp r4, r2
+		blt _memcpy
+	mov r0, #0
+    mcr p15, 0, r0, c7, c5, 0  @ flush I-cache
+    mcr p15, 0, r0, c7, c6, 0  @ flush D-cache
+    mcr p15, 0, r0, c7, c10, 4 @ drain write buffer
+	bx r1
+	
+	
+	

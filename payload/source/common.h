@@ -1,5 +1,7 @@
 #pragma once
 
+// #define VERBOSE
+
 #define	u8		unsigned char
 #define	u16		unsigned short
 #define	u32		unsigned int
@@ -9,8 +11,9 @@
 #define	vu32	volatile u32
 #define	vu64	volatile u64
 
-#define isNew3DS	(*((volatile u32*)0x10140FFC) == 7)
-#define isColdBoot	(*((volatile u32*)0x10010000) == 0)
+#define isNew3DS			(*((volatile u32*)0x10140FFC) == 7)
+#define isColdBoot			(*((volatile u32*)0x10010000) == 0)
+#define arm11Execute(x)		({*((vu32*)0x1FFFFFF8) = (u32)x; for(volatile unsigned int _i = 0; _i < 0xF; ++_i); while(*(volatile uint32_t *)0x1FFFFFF8 != 0);})
 
 #include <inttypes.h>
 #include <stddef.h>

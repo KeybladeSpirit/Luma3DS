@@ -3,6 +3,8 @@
 #include "fatfs/ff.h"
 #include "configure.h"
 
+static u32 result = 0;
+
 void drawGiantLetter(int character, int x, int y, int xScale, int yScale)
 {
 	extern const unsigned char font[];
@@ -268,10 +270,13 @@ int patchFirmLaunch(u8* data, u32 size)
 		{
 			*(buffer + patches_firmlaunch_bin_size - 0x80 + i*2) = (u8)path[i];
 		}
-		//Debug("[GOOD] FirmLaunch Patch");
+		#ifdef VERBOSE
+			Debug("[GOOD] FirmLaunch Patch");
+		#endif
 		return 0;
 	}
 	Debug("[FAIL] FirmLaunch Patch");
+	result++;
 	return 1;
 }
 
@@ -289,12 +294,16 @@ int patchSignatureChecks(u8* data, u32 size)
 		if(buffer)
 		{
 			*((u16*)(buffer + 2)) = (u16)0x2000;	// MOV R0, #0
-			//Debug("[GOOD] Signature Checks Patch");
+			#ifdef VERBOSE
+				Debug("[GOOD] Signature Checks Patch");
+			#endif
 			return 0;
 		}
+		result++;
 		return 1;
 	}
 	Debug("[FAIL] Signature Checks Patch");
+	result += 2;
 	return 2;
 }
 
@@ -310,11 +319,14 @@ int patchFirmPartitionUpdate(u8* data, u32 size)
 		{
 			*((u16*)(buffer + 0)) = (u16)0x2000;		// MOV R0, #0
 			*((u16*)(buffer + 2)) = (u16)0x46C0;		// NOP
-			//Debug("[GOOD] Arm9LoaderHax Protection");
+			#ifdef VERBOSE
+				Debug("[GOOD] Arm9LoaderHax Protection");
+			#endif
 			return 0;
 		}
 	}
 	Debug("[FAIL] Arm9LoaderHax Protection");
+	result++;
 	return 1;
 }
 
@@ -335,10 +347,13 @@ int patchArm9KernelCode(u8* data, u32 size)
 		memcpy((void*)buffer, patches_arm9kernelcode_bin, patches_arm9kernelcode_bin_size);
 		u8* returnAddr = memSearch(buffer, buffer + patches_arm9kernelcode_bin_size, (u8*)&magicWord, 4);
 		*((u32*)returnAddr) = kernelReturn;
-		//Debug("[GOOD] Kernel9 Custom Code");
+		#ifdef VERBOSE
+			Debug("[GOOD] Kernel9 Custom Code");
+		#endif
 		return 0;
 	}
 	Debug("[FAIL] Kernel9 Custom Code");
+	result++;
 	return 1;
 }
 
@@ -355,20 +370,25 @@ int patchArm9Mpu(u8* data, u32 size)
 		*((u32*)(buffer + 0x10)) = 0x20000035;
 		*((u32*)(buffer + 0x18)) = 0x00200603;
 		*((u32*)(buffer + 0x24)) = 0x001C0603;
-		//Debug("[GOOD] ARM9 MPU Patch");
+		#ifdef VERBOSE
+			Debug("[GOOD] ARM9 MPU Patch");
+		#endif
 		return 0;
 
 	}
 	Debug("[FAIL] ARM9 MPU Patch\n");
+	result++;
 	return 1;
 }
 
 int patchArm9Loader(u8* data, u32 size)
 {
-	//Debug("[GOOD] ARM9 Loader Fix");
 	cryptArm9Bin(data);
 	memset((void*)data, 0x00, 0x800);
 	memcpy((void*)data, patches_arm9loader_bin, patches_arm9loader_bin_size);
+	#ifdef VERBOSE
+		Debug("[GOOD] ARM9 Loader Fix");
+	#endif
 	return 0;
 }
 
@@ -380,11 +400,13 @@ int patchAgbBootSplash(u8* data, u32 size)
 	if(buffer)
 	{
 		*((u32*)(buffer)) = 0xEF260000;
-		//Debug("[GOOD] ARM9 AGB Boot Splash");
+		#ifdef VERBOSE
+			Debug("[GOOD] ARM9 AGB Boot Splash");
+		#endif
 		return 0;
-
 	}
 	Debug("[FAIL] ARM9 AGB Boot Splash\n");
+	result++;
 	return 1;
 }
 
@@ -425,9 +447,17 @@ int patchTwlChecks(u8* data, u32 size)
 		*((u32*)(buffer)) = 0x47702001;
 	}else res++;
 	
-	if(res) Debug("[FAIL] ARM9 TWL Checks Bypass\n");
-	//else if(res) Debug("[GOOD] ARM9 TWL Checks Bypass\n");
-	
+	if(res)
+	{
+		Debug("[FAIL] ARM9 TWL Checks Bypass\n");
+	}
+	else if(res)
+	{
+		#ifdef VERBOSE
+			Debug("[GOOD] ARM9 TWL Checks Bypass\n");
+		#endif
+	}
+	result += res;
 	return res;
 }
 
@@ -444,10 +474,13 @@ int patchLoaderModule(u8* data, u32 size)
 		memcpy(backup, buffer + backupOffset, backupSize);
 		memcpy(buffer, patches_loader_bin, patches_loader_bin_size);
 		memcpy(buffer + patches_loader_bin_size, backup, backupSize);
-		//Debug("[GOOD] Loader Module Hack");
+		#ifdef VERBOSE
+			Debug("[GOOD] Loader Module Hack");
+		#endif
 		return 0;		
 	}
 	Debug("[FAIL] Loader Module Hack");
+	result++;
 	return 1;
 }
 
@@ -465,7 +498,7 @@ firmType getRequestedFirm()
 
 void powerFirm(u8* firm)
 {
-	u32 isNew = 0, res = 0;
+	u32 isNew = 0;
 	
 	splashScreen();
 	if(getHid() & BUTTON_L1 && isColdBoot) configMenu();
@@ -475,18 +508,21 @@ void powerFirm(u8* firm)
 	{
 		if(*((u32*)firm) == 0x4D524946)
 		{
+			if(curConfig->powDebug)
+				memcpy((void*)0x1FF8000, (void*)patches_debugger_bin, (u32)0x3700);
+				
 			firmEntry* entry = (firmEntry*)(firm + 0x40);
 			if(isNew3DS)
 			{
 				if(getRequestedFirm() == NATIVE_FIRM)
 				{
-					res += patchArm9Loader(firm + (u32)entry[2].data, 0);
+					patchArm9Loader(firm + (u32)entry[2].data, 0);
 					*((u32*)(firm + (u32)entry[2].data + 4)) = (u32)0x0801B01C;
 					*((u32*)(firm + 12)) = (u32)entry[2].addr;
 				}
 				else
 				{
-					res += patchArm9Loader(firm + (u32)entry[3].data, 0);
+					patchArm9Loader(firm + (u32)entry[3].data, 0);
 					*((u32*)(firm + (u32)entry[3].data + 4)) = (u32)0x0801301C;
 					*((u32*)(firm + 12)) = (u32)entry[3].addr;
 				}
@@ -497,43 +533,44 @@ void powerFirm(u8* firm)
 			{
 				case NATIVE_FIRM:
 				{
-					if(curConfig->powDebug)
-						memcpy((void*)0x1FF8000, (void*)patches_debugger_bin, (u32)0x3700);
-					res += patchLoaderModule (firm + (u32)entry[0].data, entry[0].size);
-					res += patchFirmPartitionUpdate (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-					res += patchFirmLaunch (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-					res += patchSignatureChecks (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
-					res += patchArm9Mpu (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);		
-					res += patchArm9KernelCode (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
+					u8 *k9Data = firm + (u32)entry[2].data + isNew, *p9Data = k9Data + 0x15000;
+					u32 k9Size = entry[2].size - isNew, p9Size = k9Size - 0x15000;
+					
+					arm11Execute(patchLoaderModule (firm + (u32)entry[0].data, entry[0].size));
+					arm11Execute(patchFirmPartitionUpdate (p9Data, p9Size));
+					arm11Execute(patchFirmLaunch (p9Data, p9Size));
+					arm11Execute(patchSignatureChecks (p9Data, p9Size));
+					arm11Execute(patchArm9Mpu (k9Data, k9Size));
+					arm11Execute(patchArm9KernelCode (k9Data, k9Size));
 					break;
 				}
 				case TWL_FIRM:
 				{
-					patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
-					// patchTwlChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					arm11Execute(patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
+					// arm11Execute(patchTwlChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
 					break;
 				}
 				case AGB_FIRM:
 				{
-					patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
-					patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew);
+					arm11Execute(patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
+					arm11Execute(patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
 					break;
 				}
-			}		
+			}
 		}
 		else
 		{
 			Debug("[ERROR] Could not read FIRM title");
-			res++;
+			result++;
 		}
 	}
 	else
 	{
 		Debug("[ERROR] Could not open FIRM title");
-		res++;
+		result++;
 	}
 	
-	if(res)
+	if(result)
 	{
 		Debug(" ");
 		Debug("Press A to exit");
@@ -543,6 +580,10 @@ void powerFirm(u8* firm)
 			if(key & BUTTON_A) return;
 		}
 	}
+	
+	#ifdef VERBOSE
+		Debug("Launch!");
+	#endif
 	
 	firmLaunchBin(firm);
 }

@@ -1,5 +1,4 @@
 #include "common.h"
-#include "firmlaunch.h"
 #include "power.h"
 
 void keysInit()

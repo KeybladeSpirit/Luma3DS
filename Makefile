@@ -3,15 +3,16 @@
 PATCH	:=	patches
 BINFILS	:=	$(wildcard $(PATCH)/*.s) $(filter %/, $(wildcard $(PATCH)/*/))
 BINFILS :=	$(filter %.bin, $(BINFILS:.s=.bin) $(BINFILS:/=.bin))
+LINKSCR	:=	$(CURDIR)/tools/bootstrap.ld
 
 all: 
-	@$(foreach sfile,$(wildcard $(PATCH)/*.s), $(PATCH)/armips $(sfile);)
-	@$(foreach sfile,$(filter %/, $(wildcard $(PATCH)/*/)), $(MAKE) -C $(sfile);)
-	@$(PATCH)/bin2c -o payload/source/patches.h $(BINFILS)
-	@cd payload && make TARGET=../arm9loaderhax
+	@$(foreach sfile,$(wildcard $(PATCH)/*.s), tools/armips $(sfile);)
+	@$(foreach sfile,$(filter %/, $(wildcard $(PATCH)/*/)), $(MAKE) -C $(sfile) LDSCRIPT=$(LINKSCR);)
+	@tools/bin2c -o payload/source/patches.h $(BINFILS)
+	@make -C payload TARGET=../arm9loaderhax LDSCRIPT=$(LINKSCR)
 	
 clean :
-	@cd payload && make clean TARGET=../arm9loaderhax
+	@make -C payload clean TARGET=../arm9loaderhax
 	@rm -f $(PATCH)/*.bin
 	@$(foreach sfile,$(filter %/, $(wildcard $(PATCH)/*/)), $(MAKE) -C $(sfile) clean;)
 	

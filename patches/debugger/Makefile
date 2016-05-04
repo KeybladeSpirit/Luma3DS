@@ -6,9 +6,7 @@ ifeq ($(strip $(DEVKITARM)),)
 $(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
 endif
 
-TOPDIR ?= $(CURDIR)
-MAKEROM ?= $(DEVKITARM)/bin/makerom
-include $(DEVKITARM)/3ds_rules
+include $(DEVKITARM)/ds_rules
 
 #---------------------------------------------------------------------------------
 # TARGET is the name of the output
@@ -16,37 +14,46 @@ include $(DEVKITARM)/3ds_rules
 # SOURCES is a list of directories containing source code
 # DATA is a list of directories containing data files
 # INCLUDES is a list of directories containing header files
+# SPECS is the directory containing the important build and link files
 #---------------------------------------------------------------------------------
-TARGET		:=	$(notdir $(CURDIR))
+TARGET 		:=  $(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source
-DATA		:=	data stubs
-INCLUDES	:=	include
+SOURCES		:=	source source/fatfs source/system
+DATA		:=	data
+INCLUDES	:=	source source/fatfs
+ADDRESS		:=	0x1FF8000
+
+#---------------------------------------------------------------------------------
+# Setup some defines
+#---------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
-
-CFLAGS	:= -flto -Wall -Os -mword-relocations -fshort-wchar\
-			-fomit-frame-pointer -ffunction-sections -fdata-sections \
+#ARCH	:=	-mthumb -mthumb-interwork
+ARCH	:=	
+CFLAGS	:=	-g -Wall -Wmain -Os -fshort-wchar -Wno-aggressive-loop-optimizations\
+			-march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
+			-ffast-math -std=c99 \
 			$(ARCH)
 
-CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
+CFLAGS	+=	$(INCLUDE)
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu99
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
-ASFLAGS	:=	$(ARCH)
-LDFLAGS	=	-flto -Xlinker --defsym="__start__=0x14000000" -specs=../tools/3dsx.specs $(ARCH) -Wl,-Map,$(notdir $*.map)
+ASFLAGS	:=	-g $(ARCH) 
+LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,output.map
 
-LIBS	:= ../tools/libctru.a
+LDFLAGS	+=	-Xlinker --script=$(LDSCRIPT) -Xlinker --defsym="__start__=$(ADDRESS)"
+
+
+LIBS	:=
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(CTRULIB)
-
+LIBDIRS	:=
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
@@ -56,7 +63,6 @@ ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
 export OUTPUT	:=	$(CURDIR)
-export TOPDIR	:=	$(CURDIR)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
@@ -66,8 +72,6 @@ export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
-PICAFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.v.pica)))
-SHLISTFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.shlist)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
 #---------------------------------------------------------------------------------
@@ -84,9 +88,8 @@ else
 endif
 #---------------------------------------------------------------------------------
 
-export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
-			$(PICAFILES:.v.pica=.shbin.o) $(SHLISTFILES:.shlist=.shbin.o) \
-			$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+export OFILES	:= $(addsuffix .o,$(BINFILES)) \
+			$(SFILES:.s=.o) $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) 
 
 export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
@@ -94,20 +97,20 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
-.PHONY: $(BUILD) clean all
+.PHONY: $(BUILD) all clean
 
 #---------------------------------------------------------------------------------
 all: $(BUILD)
 
 $(BUILD):
-	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@[ -d $(OUTPUT_D) ] || mkdir -p $(OUTPUT_D)
+	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
+	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(OUTPUT).bin $(TARGET).elf data/homecode.bin
-
+	@rm -fr $(BUILD) $(OUTPUT).bin
 
 #---------------------------------------------------------------------------------
 else
@@ -117,11 +120,14 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT).bin	: $(OUTPUT).elf
-	@makerom -f ncch -rsf ../tools/loader.rsf -nocodepadding -o $@ -elf $<
-	@rm $(OUTPUT).elf
-
+$(OUTPUT).bin	:	$(OUTPUT).elf
 $(OUTPUT).elf	:	$(OFILES)
+
+#---------------------------------------------------------------------------------
+%.bin: %.elf
+	@$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@
+	@echo built ... $(notdir $@)
+	@rm -f $(OUTPUT).elf
 
 #---------------------------------------------------------------------------------
 # you need a rule like this for each extension you use as binary data
@@ -131,31 +137,8 @@ $(OUTPUT).elf	:	$(OFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
-#---------------------------------------------------------------------------------
-# rules for assembling GPU shaders
-#---------------------------------------------------------------------------------
-define shader-as
-	$(eval CURBIN := $(patsubst %.shbin.o,%.shbin,$(notdir $@)))
-	picasso -o $(CURBIN) $1
-	bin2s $(CURBIN) | $(AS) -o $@
-	echo "extern const u8" `(echo $(CURBIN) | sed -e 's/^\([0-9]\)/_\1/' | tr . _)`"_end[];" > `(echo $(CURBIN) | tr . _)`.h
-	echo "extern const u8" `(echo $(CURBIN) | sed -e 's/^\([0-9]\)/_\1/' | tr . _)`"[];" >> `(echo $(CURBIN) | tr . _)`.h
-	echo "extern const u32" `(echo $(CURBIN) | sed -e 's/^\([0-9]\)/_\1/' | tr . _)`_size";" >> `(echo $(CURBIN) | tr . _)`.h
-endef
-
-%.shbin.o : %.v.pica %.g.pica
-	@echo $(notdir $^)
-	@$(call shader-as,$^)
-
-%.shbin.o : %.v.pica
-	@echo $(notdir $<)
-	@$(call shader-as,$<)
-
-%.shbin.o : %.shlist
-	@echo $(notdir $<)
-	@$(call shader-as,$(foreach file,$(shell cat $<),$(dir $<)/$(file)))
-
 -include $(DEPENDS)
+
 
 #---------------------------------------------------------------------------------------
 endif

@@ -143,7 +143,7 @@ void ShowProgress(u64 current, u64 total)
     
     if (total > 0) {
         char progStr[8];
-        snprintf(progStr, 8, "%3llu%%", (current * 100) / total);
+        snprintf(progStr, 8, "%3lu%%", (current * 100) / total);
         DrawString(TOP_SCREEN0, progStr, progX, progY, DBG_COLOR_FONT, DBG_COLOR_BG);
         DrawString(TOP_SCREEN1, progStr, progX, progY, DBG_COLOR_FONT, DBG_COLOR_BG);
     } else {

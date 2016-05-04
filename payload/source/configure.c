@@ -1,6 +1,5 @@
 #include "configure.h"
 #include "power.h"
-#include "browser.h"
 
 void configMenu()
 {
@@ -14,12 +13,9 @@ void configMenu()
 		Debug("PowerFirm - Options Menu");
 		Debug("");
 		Debug("");
-		Debug("%c PowerFirm Boot Animation     %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c Classic Mode (Stock System)  %s", (sel == cur) ? '-' : ' ', !*((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c Signatures Checks Bypass     %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c ARM9 Exception Debugger      %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c GBA Boot-Screen Animation    %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
-		Debug("%c Home Menu Region-Free        %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c PowerFirm Animation          %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c PowerFirm Patches            %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
+		Debug("%c PowerFirm Debugger           %s", (sel == cur) ? '-' : ' ', *((u8*)curConfig + cur++) ? "<on>" : "<off>");
 		DrawString(TOP_SCREEN0, "Up/Down    : Select option", 10, 190, COLOR_WHITE, COLOR_BLACK);
 		DrawString(TOP_SCREEN0, "Left/Right : Change option", 10, 200, COLOR_WHITE, COLOR_BLACK);
 		DrawString(TOP_SCREEN0, "Start      : Save changes and reboot", 10, 210, COLOR_WHITE, COLOR_BLACK);
@@ -44,7 +40,7 @@ void configMenu()
 		}
 		if(pad & BUTTON_SELECT)
 		{
-			fileBrowser("sdmc:/", &loadPayload);
+			fileBrowser("sdmc:", &loadPayload);
 			DebugClear();
 		}
 	}

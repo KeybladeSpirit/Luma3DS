@@ -21,6 +21,7 @@ BUILD		:=	build
 SOURCES		:=	source source/fatfs source/system
 DATA		:=	data
 INCLUDES	:=	source source/fatfs
+ADDRESS		:=	0x23F00000
 DATE		:= 	$(shell date +'%Y%m%d')
 VERSION		:=	Ver. $(patsubst 2016%,16%,$(DATE))
 
@@ -33,7 +34,7 @@ VERSION		:=	Ver. $(patsubst 2016%,16%,$(DATE))
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb -mthumb-interwork
 #ARCH	:=
-CFLAGS	:=	-g -Wall -O2 -Wno-unused-variable\
+CFLAGS	:=	-g -Wall -O2 -Wno-unused-variable -Wno-sequence-point\
 			-march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
 			-ffast-math -std=c11\
 			$(ARCH) -DVERSION='"$(VERSION)"'
@@ -45,7 +46,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 ASFLAGS	:=	-g $(ARCH) -DTIMEDATE='"$(shell date +'%Y%m%d%H%M%S')"'
 LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,$(BUILD)/$(TARGET).map
 
-LDFLAGS += --specs=../bootstrap.specs
+LDFLAGS	+=	-Xlinker --script=$(LDSCRIPT) -Xlinker --defsym="__start__=$(ADDRESS)"
 
 
 LIBS	:=

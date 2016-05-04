@@ -1,148 +1,121 @@
 #include "power.h"
-#include "firmlaunch.h"
 #include "patches.h"
 #include "fatfs/ff.h"
 #include "configure.h"
 
-// Below is stolen from http://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string_search_algorithm
-
-#define ALPHABET_LEN 256
-#define NOT_FOUND patlen
-#define max(a, b) ((a < b) ? b : a)
- 
-// delta1 table: delta1[c] contains the distance between the last
-// character of pat and the rightmost occurence of c in pat.
-// If c does not occur in pat, then delta1[c] = patlen.
-// If c is at string[i] and c != pat[patlen-1], we can
-// safely shift i over by delta1[c], which is the minimum distance
-// needed to shift pat forward to get string[i] lined up 
-// with some character in pat.
-// this algorithm runs in alphabet_len+patlen time.
-static void make_delta1(int *delta1, u8 *pat, int patlen)
+void drawGiantLetter(int character, int x, int y, int xScale, int yScale)
 {
-	int i;
-	for (i=0; i < ALPHABET_LEN; i++) {
-		delta1[i] = NOT_FOUND;
-	}
-	for (i=0; i < patlen-1; i++) {
-		delta1[pat[i]] = patlen-1 - i;
-	}
-}
- 
-// true if the suffix of word starting from word[pos] is a prefix 
-// of word
-static int is_prefix(u8 *word, int wordlen, int pos)
-{
-	int i;
-	int suffixlen = wordlen - pos;
-	// could also use the strncmp() library function here
-	for (i = 0; i < suffixlen; i++) {
-		if (word[i] != word[pos+i]) {
-			return 0;
+	extern const unsigned char font[];
+    for (int yy = 0; yy < 8*yScale; yy+=yScale)
+	{
+        int xDisplacement = (x * BYTES_PER_PIXEL * SCREEN_HEIGHT);
+        int yDisplacement = ((SCREEN_HEIGHT - (y + yy) - 1) * BYTES_PER_PIXEL);
+		
+		for(int _scaley = 0; _scaley < yScale; _scaley++)
+		{
+			u8* screenPos = TOP_SCREEN0 + xDisplacement + yDisplacement;
+			u8 charPos = font[character * 8 + yy/yScale];
+			for (int xx = 7; xx >= 0; xx--)
+			{
+				for(int _scalex = 0; _scalex < xScale; _scalex++)
+				{
+					if ((charPos >> xx) & 1)
+					{
+						*(screenPos + 0) = COLOR_WHITE >> 16;  // B
+						*(screenPos + 1) = COLOR_WHITE >> 8;   // G
+						*(screenPos + 2) = COLOR_WHITE & 0xFF; // R
+					} else {
+						*(screenPos + 0) = COLOR_BLACK >> 16;  // B
+						*(screenPos + 1) = COLOR_BLACK >> 8;   // G
+						*(screenPos + 2) = COLOR_BLACK & 0xFF; // R
+					}
+					screenPos += BYTES_PER_PIXEL * SCREEN_HEIGHT;
+				}
+			}
+			yDisplacement += BYTES_PER_PIXEL;
 		}
-	}
-	return 1;
-}
- 
-// length of the longest suffix of word ending on word[pos].
-// suffix_length("dddbcabc", 8, 4) = 2
-static int suffix_length(u8 *word, int wordlen, int pos)
-{
-	int i;
-	// increment suffix length i to the first mismatch or beginning
-	// of the word
-	for (i = 0; (word[pos-i] == word[wordlen-1-i]) && (i < pos); i++);
-	return i;
-}
- 
-// delta2 table: given a mismatch at pat[pos], we want to align 
-// with the next possible full match could be based on what we
-// know about pat[pos+1] to pat[patlen-1].
-//
-// In case 1:
-// pat[pos+1] to pat[patlen-1] does not occur elsewhere in pat,
-// the next plausible match starts at or after the mismatch.
-// If, within the substring pat[pos+1 .. patlen-1], lies a prefix
-// of pat, the next plausible match is here (if there are multiple
-// prefixes in the substring, pick the longest). Otherwise, the
-// next plausible match starts past the character aligned with 
-// pat[patlen-1].
-// 
-// In case 2:
-// pat[pos+1] to pat[patlen-1] does occur elsewhere in pat. The
-// mismatch tells us that we are not looking at the end of a match.
-// We may, however, be looking at the middle of a match.
-// 
-// The first loop, which takes care of case 1, is analogous to
-// the KMP table, adapted for a 'backwards' scan order with the
-// additional restriction that the substrings it considers as 
-// potential prefixes are all suffixes. In the worst case scenario
-// pat consists of the same letter repeated, so every suffix is
-// a prefix. This loop alone is not sufficient, however:
-// Suppose that pat is "ABYXCDEYX", and text is ".....ABYXCDEYX".
-// We will match X, Y, and find B != E. There is no prefix of pat
-// in the suffix "YX", so the first loop tells us to skip forward
-// by 9 characters.
-// Although superficially similar to the KMP table, the KMP table
-// relies on information about the beginning of the partial match
-// that the BM algorithm does not have.
-//
-// The second loop addresses case 2. Since suffix_length may not be
-// unique, we want to take the minimum value, which will tell us
-// how far away the closest potential match is.
-static void make_delta2(int *delta2, u8 *pat, int patlen)
-{
-	int p;
-	int last_prefix_index = patlen-1;
- 
-	// first loop
-	for (p=patlen-1; p>=0; p--) {
-		if (is_prefix(pat, patlen, p+1)) {
-		last_prefix_index = p+1;
-		}
-		delta2[p] = last_prefix_index + (patlen-1 - p);
-	}
- 
-	// second loop
-	for (p=0; p < patlen-1; p++) {
-		int slen = suffix_length(pat, patlen, p);
-		if (pat[p - slen] != pat[patlen-1 - slen]) {
-		delta2[patlen-1 - slen] = patlen-1 - p + slen;
-		}
-	}
-}
- 
-static u8* boyer_moore(u8 *string, int stringlen, u8 *pat, int patlen)
-{
-	int i;
-	int delta1[ALPHABET_LEN];
-	int delta2[patlen * sizeof(int)];
-	make_delta1(delta1, pat, patlen);
-	make_delta2(delta2, pat, patlen);
- 
-	i = patlen-1;
-	while (i < stringlen) {
-		int j = patlen-1;
-		while (j >= 0 && (string[i] == pat[j])) {
-			--i;
-			--j;
-		}
-		if (j < 0) {
-			return (string + i+1);
-		}
- 
-		i += max(delta1[string[i]], delta2[j]);
-	}
-	return NULL;
+    }
 }
 
-// Currently using : Boyer Moore Alghorithm
+void drawSplashString(const char* str, int y, bool anim)
+{
+	int xScale = 4;
+	int yScale = 3;
+	int charDist = 8*xScale;
+	int xPos = (400 - strlen(str)*(charDist))/2;
+	int waitTime = 10000000/8;
+	int drawTime = 1000000/2;
+	
+	if(anim)
+	{
+		drawGiantLetter('_', xPos + charDist*0, y, xScale, yScale);
+		ioDelay(waitTime);
+		drawGiantLetter(' ', xPos + charDist*0, y, xScale, yScale);
+		ioDelay(waitTime); 
+		
+		for(int i = 0; i < strlen(str) + 1; i++)
+		{
+			for(int j = 0; j < i; j++)
+			{
+				drawGiantLetter(str[j], xPos + charDist*j, y, xScale, yScale);
+			}
+			drawGiantLetter('_', xPos + charDist*(i), y, xScale, yScale);
+			ioDelay(drawTime);
+		}
+		drawGiantLetter(' ', xPos + charDist*strlen(str), y, xScale, yScale);
+		ioDelay(waitTime);
+		drawGiantLetter('_', xPos + charDist*strlen(str), y, xScale, yScale);
+		ioDelay(waitTime);
+		drawGiantLetter(' ', xPos + charDist*strlen(str), y, xScale, yScale);
+		ioDelay(waitTime);
+	}
+	else
+	{
+		for(int i = 0; i < strlen(str); i++)
+		{
+			drawGiantLetter(str[i], xPos + charDist*i, y, xScale, yScale);
+		}
+	}
+}
+
+void splashScreen()
+{
+	if(!isColdBoot) return;
+	if(!curConfig->powAnim) return;
+	ClearScreenFull(1, 1);
+	DrawString(TOP_SCREEN0, "[L] : Options", 10, 10, COLOR_WHITE, COLOR_BLACK);
+	DrawString(TOP_SCREEN0, VERSION, 10, 220, COLOR_WHITE, COLOR_BLACK);
+	DrawString(TOP_SCREEN0, "@2016, Jason Dellaluce", 208, 220, COLOR_WHITE, COLOR_BLACK);
+	drawSplashString("PowerFirm", 88, 1);
+	drawSplashString("3DS", 128, 0);
+}
+
+u8 *_memSearch(u8 *startPos, const void *pattern, u32 size, u32 patternSize)
+{
+    const u8 *patternc = (const u8 *)pattern;
+	
+    //Preprocessing
+    u32 table[256];
+    for(u32 i = 0; i < 256; ++i)
+        table[i] = patternSize + 1;
+    for(u32 i = 0; i < patternSize; ++i)
+        table[patternc[i]] = patternSize - i;
+		
+    //Searching
+    u32 j = 0;
+    while(j <= size - patternSize)
+    {
+        if(memcmp(patternc, startPos + j, patternSize) == 0)
+            return startPos + j;
+        j += table[startPos[j + patternSize]];
+    }
+    return NULL;
+}
+
 u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 {
-	return boyer_moore(memstart, (int)(memend - memstart), memblock, (int)memsize);
+	return _memSearch(memstart, (void*)memblock, (u32)(memend - memstart), (u32)memsize);
 }
-
-#define ARM9ADDR 0x08006800
 
 char* dirToAvoid[] = 
 {
@@ -272,7 +245,7 @@ u32 getProcess9Shift(u8* data, u32 size)
 	if(buffer)
 	{
 		u32 process9CodeAddr = *((u32*)(buffer + 0x100));
-		u32 process9CodeOffset = (buffer - data - 0x110) + ARM9ADDR + (*((u32*)(buffer + 0x90)) + 1)*0x200;
+		u32 process9CodeOffset = (buffer - data - 0x110) + 0x08006800 + (*((u32*)(buffer + 0x90)) + 1)*0x200;
 		ret = process9CodeAddr - process9CodeOffset;
 	}
 	return ret;
@@ -286,7 +259,7 @@ int patchFirmLaunch(u8* data, u32 size)
 	if(buffer)
 	{
 		buffer -= 0x10;
-		u32 fopenAddr = (buffer - data) + ARM9ADDR + getProcess9Shift(data, size) + 8 - ((((*((u32*)buffer) & 0x00FFFFFF) << 2)*(-1)) & 0xFFFFF);
+		u32 fopenAddr = (buffer - data) + 0x08006800 + getProcess9Shift(data, size) + 8 - ((((*((u32*)buffer) & 0x00FFFFFF) << 2)*(-1)) & 0xFFFFF);
 		memcpy(buffer, patches_firmlaunch_bin, patches_firmlaunch_bin_size);
 		*((u32*)memSearch(buffer, buffer + patches_firmlaunch_bin_size, (u8[]){0xED, 0x0D, 0xDC, 0xBA}, 4)) = fopenAddr + 1;
 		getPayloadPath(path, "");
@@ -304,8 +277,7 @@ int patchFirmLaunch(u8* data, u32 size)
 
 int patchSignatureChecks(u8* data, u32 size)
 {
-	if(!curConfig->cleanMode) return 0;
-	if(!curConfig->signPatch) return 0;
+	if(!curConfig->powMode) return 0;
 	u8 stockCode[] = { 0x70, 0xB5, 0x22, 0x4D, 0x0C, 0x00, 0x69, 0x68, 0xCE, 0xB0, 0xCB, 0x08, 0x01, 0x68, 0x0E, 0x68};
 	u8* buffer = memSearch(data, data + size, stockCode, 16);
 	if(buffer)
@@ -348,14 +320,14 @@ int patchFirmPartitionUpdate(u8* data, u32 size)
 
 int patchArm9KernelCode(u8* data, u32 size)
 {
-	if(!curConfig->cleanMode) return 0;
-	if(!curConfig->excDebug) return 0;
+	if(!curConfig->powMode) return 0;
+	if(!curConfig->powDebug) return 0;
 	u8 stockCodeK[] = {0x03, 0x00, 0x2D, 0xE9, 0xD3, 0xF0, 0x21, 0xE3, 0x0D, 0x00, 0xA0, 0xE1, 0xD2, 0xF0, 0x21, 0xE3};
 	u8* buffer = memSearch(data, data + size, stockCodeK, 16);
 	if(buffer)
 	{
 		buffer += 0x10;
-		u32 kernelReturn = (buffer - data) + 8 + ARM9ADDR;
+		u32 kernelReturn = (buffer - data) + 8 + 0x08006800;
 		*((u32*)(buffer + 0)) = (u32)0xE51FF004;	// LDR PC, [PC,#-4]
 		*((u32*)(buffer + 4)) = (u32)0x0801A500;	// Our Code
 		u32 magicWord = 0xDEADC0DE;	
@@ -372,8 +344,8 @@ int patchArm9KernelCode(u8* data, u32 size)
 
 int patchArm9Mpu(u8* data, u32 size)
 {
-	if(!curConfig->cleanMode) return 0;
-	if(!curConfig->excDebug) return 0;
+	if(!curConfig->powMode) return 0;
+	if(!curConfig->powDebug) return 0;
 	u8 stockCode[] = {0x00, 0x00, 0x10, 0x10, 0x01, 0x00, 0x00, 0x01};
 	u8* buffer = memSearch(data, data + size, stockCode, 8);
 	if(buffer)
@@ -402,8 +374,7 @@ int patchArm9Loader(u8* data, u32 size)
 
 int patchAgbBootSplash(u8* data, u32 size)
 {
-	if(!curConfig->gbaAnim) return 0;
-	if(!curConfig->cleanMode) return 0;
+	if(!curConfig->powMode) return 0;
 	u8 stockCode[] = {0x00, 0x00, 0x01, 0xEF};
 	u8* buffer = memSearch(data, data + size, stockCode, 4);
 	if(buffer)
@@ -462,7 +433,7 @@ int patchTwlChecks(u8* data, u32 size)
 
 int patchLoaderModule(u8* data, u32 size)
 {
-	if(!curConfig->cleanMode) return 0;
+	if(!curConfig->powMode) return 0;
 	u8* buffer = memSearch(data, data + size, (u8*)"loader", 7);
 	if(buffer)
 	{
@@ -473,7 +444,6 @@ int patchLoaderModule(u8* data, u32 size)
 		memcpy(backup, buffer + backupOffset, backupSize);
 		memcpy(buffer, patches_loader_bin, patches_loader_bin_size);
 		memcpy(buffer + patches_loader_bin_size, backup, backupSize);
-		*(buffer + 0xC02) = curConfig->regionFree;
 		//Debug("[GOOD] Loader Module Hack");
 		return 0;		
 	}
@@ -493,94 +463,6 @@ firmType getRequestedFirm()
 	}
 }
 
-extern const unsigned char font[];
-
-void drawGiantLetter(int character, int x, int y, int xScale, int yScale)
-{
-    for (int yy = 0; yy < 8*yScale; yy+=yScale)
-	{
-        int xDisplacement = (x * BYTES_PER_PIXEL * SCREEN_HEIGHT);
-        int yDisplacement = ((SCREEN_HEIGHT - (y + yy) - 1) * BYTES_PER_PIXEL);
-		
-		for(int _scaley = 0; _scaley < yScale; _scaley++)
-		{
-			u8* screenPos = TOP_SCREEN0 + xDisplacement + yDisplacement;
-			u8 charPos = font[character * 8 + yy/yScale];
-			for (int xx = 7; xx >= 0; xx--)
-			{
-				for(int _scalex = 0; _scalex < xScale; _scalex++)
-				{
-					if ((charPos >> xx) & 1)
-					{
-						*(screenPos + 0) = COLOR_WHITE >> 16;  // B
-						*(screenPos + 1) = COLOR_WHITE >> 8;   // G
-						*(screenPos + 2) = COLOR_WHITE & 0xFF; // R
-					} else {
-						*(screenPos + 0) = COLOR_BLACK >> 16;  // B
-						*(screenPos + 1) = COLOR_BLACK >> 8;   // G
-						*(screenPos + 2) = COLOR_BLACK & 0xFF; // R
-					}
-					screenPos += BYTES_PER_PIXEL * SCREEN_HEIGHT;
-				}
-			}
-			yDisplacement += BYTES_PER_PIXEL;
-		}
-    }
-}
-
-void drawSplashString(const char* str, int y, bool anim)
-{
-	int xScale = 4;
-	int yScale = 3;
-	int charDist = 8*xScale;
-	int xPos = (400 - strlen(str)*(charDist))/2;
-	int waitTime = 10000000/8;
-	int drawTime = 1000000/2;
-	
-	if(anim)
-	{
-		drawGiantLetter('_', xPos + charDist*0, y, xScale, yScale);
-		ioDelay(waitTime);
-		drawGiantLetter(' ', xPos + charDist*0, y, xScale, yScale);
-		ioDelay(waitTime); 
-		
-		for(int i = 0; i < strlen(str) + 1; i++)
-		{
-			for(int j = 0; j < i; j++)
-			{
-				drawGiantLetter(str[j], xPos + charDist*j, y, xScale, yScale);
-			}
-			drawGiantLetter('_', xPos + charDist*(i), y, xScale, yScale);
-			ioDelay(drawTime);
-		}
-		drawGiantLetter(' ', xPos + charDist*strlen(str), y, xScale, yScale);
-		ioDelay(waitTime);
-		drawGiantLetter('_', xPos + charDist*strlen(str), y, xScale, yScale);
-		ioDelay(waitTime);
-		drawGiantLetter(' ', xPos + charDist*strlen(str), y, xScale, yScale);
-		ioDelay(waitTime);
-	}
-	else
-	{
-		for(int i = 0; i < strlen(str); i++)
-		{
-			drawGiantLetter(str[i], xPos + charDist*i, y, xScale, yScale);
-		}
-	}
-}
-
-void splashScreen()
-{
-	if(!isColdBoot) return;
-	if(!curConfig->bootAnim) return;
-	ClearScreenFull(1, 1);
-	DrawString(TOP_SCREEN0, "[L] : Options", 10, 10, COLOR_WHITE, COLOR_BLACK);
-	DrawString(TOP_SCREEN0, VERSION, 10, 220, COLOR_WHITE, COLOR_BLACK);
-	DrawString(TOP_SCREEN0, "@2016, Jason Dellaluce", 208, 220, COLOR_WHITE, COLOR_BLACK);
-	drawSplashString("PowerFirm", 88, 1);
-	drawSplashString("3DS", 128, 0);
-}
-
 void powerFirm(u8* firm)
 {
 	u32 isNew = 0, res = 0;
@@ -588,7 +470,7 @@ void powerFirm(u8* firm)
 	splashScreen();
 	if(getHid() & BUTTON_L1 && isColdBoot) configMenu();
 	
-	if(!firm) firm = getFirmFromTitle(getRequestedFirm());	
+	if(!firm) firm = firmGetFromTitle(getRequestedFirm());	
 	if(firm)
 	{
 		if(*((u32*)firm) == 0x4D524946)
@@ -615,6 +497,8 @@ void powerFirm(u8* firm)
 			{
 				case NATIVE_FIRM:
 				{
+					if(curConfig->powDebug)
+						memcpy((void*)0x1FF8000, (void*)patches_debugger_bin, (u32)0x3700);
 					res += patchLoaderModule (firm + (u32)entry[0].data, entry[0].size);
 					res += patchFirmPartitionUpdate (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);
 					res += patchFirmLaunch (firm + (u32)entry[2].data + isNew, entry[2].size - isNew);

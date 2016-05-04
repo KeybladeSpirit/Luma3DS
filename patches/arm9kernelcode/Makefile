@@ -21,7 +21,7 @@ BUILD		:=	build
 SOURCES		:=	source source/fatfs source/system
 DATA		:=	data
 INCLUDES	:=	source source/fatfs
-
+ADDRESS		:=	0x0801A500
 #---------------------------------------------------------------------------------
 # Setup some defines
 #---------------------------------------------------------------------------------
@@ -43,7 +43,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 ASFLAGS	:=	-g $(ARCH) 
 LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,$(TARGET).map
 
-LDFLAGS += --specs=../bootstrap.specs
+LDFLAGS	+=	-Xlinker --script=$(LDSCRIPT) -Xlinker --defsym="__start__=$(ADDRESS)"
 
 
 LIBS	:=

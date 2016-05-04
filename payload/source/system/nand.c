@@ -27,7 +27,7 @@ u32 nandGetCtr(u8* ctr, u32 offset)
 
 void nandCrypt(u32 sector_no, u32 numsectors, u8 *out, nandRegion section)
 {
-	u8 keyslot, ctr[0x10];
+	u8 keyslot = 0, ctr[0x10];
 	switch(section)
 	{	
 		case TWLN: 		keyslot = 3; break;

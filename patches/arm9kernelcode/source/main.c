@@ -14,7 +14,7 @@ int main()
 	initExceptionHandler();
 	if(~(*(volatile u32*)0x10146000) & (1 << 2))
 	{
-		((void (*)())0xDEADC0DE)();
+		//((void (*)())0xDEADC0DE)();
 	}
 	return 0;
 }

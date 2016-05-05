@@ -1,10 +1,24 @@
 #include "common.h"
 #include "power.h"
 
-void keysInit()
+void arm11SlaveRoutine()
 {
+	__asm(".word 0xF10C01C0");
+	while(1)
+	{
+		*((vu32*)arm11EntryPoint) = 0;
+		while(!*((vu32*)arm11EntryPoint));
+		((void (*)())*((vu32*)arm11EntryPoint))();
+	}
+}
+
+void miscInit()
+{
+	// SDMC/NAND Access
 	*(u32*)0x10000020 = 0;
-    *(u32*)0x10000020 = 0x340;
+	*(u32*)0x10000020 = 0x340;
+
+	// N3DS ctrNand key init
 	if(isNew3DS && isColdBoot)
 	{
 		// CTRNAND Keyslot 0x05 initialization
@@ -13,16 +27,19 @@ void keysInit()
 		aes_setkey(5, (u8*)nKeyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
 		nandReadSectors(0, 1, buf, NEWCTR);
 	}
+
+	// Turn ARM11 in hour executer slave
+	arm11Execute(arm11SlaveRoutine);
 }
 
 int main()
 {
 	screenInit();
-	keysInit();
+	miscInit();
 	fsInit();
 
 	powerFirm(NULL);
-	
+
 	fsExit();
 	i2cWriteRegister(I2C_DEV_MCU, 0x20, (u8)(1<<0));
     return 0;

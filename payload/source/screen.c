@@ -12,11 +12,11 @@ void screenInit(void){
 		// Delay here pls
 		for(volatile int i = 0xC; i > 0; i-=2);
 		*((volatile uint32_t*)0x10141200) = 0x1007F; // PDN_GPU_CNT
-		
+
 		// gsp sub_1021F4 init_screen_maybe
 		*((volatile uint32_t*)0x10400004) |= 0x100;
 		*((volatile uint32_t*)0x10400030) &= 0xFFFFF0FF;
-		
+
 		// sub_107A34
 		// Top screen
 		*((volatile uint32_t*)0x10400400) = 0x000001c2;
@@ -50,10 +50,10 @@ void screenInit(void){
 		*((volatile uint32_t*)0x10400498) = 0x18000000;
 		*((volatile uint32_t*)0x10400470) = 0x00080340;
 		*((volatile uint32_t*)0x10400480) = 0x00000000;
-		
+
 		for(int i = 0, temp = 0; i < 256; i++)
 			*((volatile uint32_t*)0x10400484) = 0x10101 * i;
-		
+
 		// Bottom screen
 		*((volatile uint32_t*)0x10400500) = 0x000001c2;
 		*((volatile uint32_t*)0x10400504) = 0x000000d1;
@@ -86,27 +86,27 @@ void screenInit(void){
 		*((volatile uint32_t*)0x10400598) = 0x18000000;
 		*((volatile uint32_t*)0x10400570) = 0x00080301;
 		*((volatile uint32_t*)0x10400580) = 0x00000000;
-		
+
 		for(int i = 0, temp = 0; i < 256; i++)
 			*((volatile uint32_t*)0x10400584) = 0x10101 * i;
-		
+
 		*((volatile uint32_t*)0x10400478) = 0x00000000;
 		*((volatile uint32_t*)0x10400578) = 0x00000000;
 		*((volatile uint32_t*)0x10400474) = 0x00010501;
 		*((volatile uint32_t*)0x10400574) = 0x00010501;
-		
+
 		// sub_10915C
 		*((volatile uint32_t*)0x10202014) = 0x00000001;
 		*((volatile uint32_t*)0x10202204) = 0x00000000; // color fill disable
 		*((volatile uint32_t*)0x10202a04) = 0x00000000; // color fill disable
 		*((volatile uint32_t*)0x1020200C) &= 0xFFFEFFFE;// wtf register
-		
+
 		*((volatile uint32_t*)0x10202240) = BRIGHTNESS;
 		*((volatile uint32_t*)0x10202244) = 0x1023E;
-		
+
 		*((volatile uint32_t*)0x10202A40) = BRIGHTNESS;
 		*((volatile uint32_t*)0x10202A44) = 0x1023E;
-		
+
 		// After hm call cmd 0x00160042 to acquire rights
 		// and cmd 00130042 RegisterInterruptRelayQueue
 		*((volatile uint32_t*)0x10401000) = 0;
@@ -162,96 +162,91 @@ void screenInit(void){
 		*((volatile uint32_t*)0x10400564) = 0x01920052;//diff
 		*((volatile uint32_t*)0x1040059C) = 0x00000000;
 		//(122860 log)
-		
+
 		*((volatile uint32_t*)0x10400468) = 0x18300000;
 		*((volatile uint32_t*)0x1040046c) = 0x18300000;
 		*((volatile uint32_t*)0x10400494) = 0x18300000;
 		*((volatile uint32_t*)0x10400498) = 0x18300000;
-		
+
 		*((volatile uint32_t*)0x10400568) = 0x18346500;
 		*((volatile uint32_t*)0x1040056c) = 0x18346500;
-		
+
 		*((volatile uint32_t*)0x10400478) = 0x00000001;
 		*((volatile uint32_t*)0x10400578) = 0x00000001;
-		
+
 		// called by hm
 		*((volatile uint32_t*)0x10400004) = 0x00070100;
-		
+
 		//(123030 log)
 		*((volatile uint32_t*)0x1040001C) &= 0xFFFFFFFD;
 		*((volatile uint32_t*)0x1040002C) &= 0xFFFFFFFD;
 		*((volatile uint32_t*)0x10400050) = 0x22221200;
 		*((volatile uint32_t*)0x10400054) = 0xFF2;
-		
+
 		//(123097 log)
 		*((volatile uint32_t*)0x10400474) = 0x00010501;
 		*((volatile uint32_t*)0x10400574) = 0x00010501;
-		
+
 		// from hm
 		// command list skipped
 		*((volatile uint32_t*)0x10400470) = 0x00080341;
 		*((volatile uint32_t*)0x10400490) = 0x000002D0;
-		
+
 		*((volatile uint32_t*)0x10400570) = 0x00080301;
 		*((volatile uint32_t*)0x10400590) = 0x000002D0;
-		
+
 		*((volatile uint32_t*)0x10401000) = 0x00000000;
-	
+
 		// Enable backlight
 		i2cWriteRegister(3, 0x22, 0b101010);
-		
-		memset((void*)0x18300000, 0, 0x46500*2);		
+
+		memset((void*)0x18300000, 0, 0x46500*2);
 		*((vu32*)0x10400468) = 0x18300000;
 		*((vu32*)0x1040046c) = 0x18300000;
 		*((vu32*)0x10400494) = 0x18300000;
 		*((vu32*)0x10400498) = 0x18300000;
 		*((vu32*)0x10400568) = 0x18346500;
 		*((vu32*)0x1040056c) = 0x18346500;
-		
+
 		// Save in memory
 		*((vu32*)0x23FFFE00) = 0x18300000;
 		*((vu32*)0x23FFFE04) = 0x18300000;
 		*((vu32*)0x23FFFE08) = 0x18346500;
-		
-		*((vu32*)0x1FFFFFF8) = 0;
-		while(!*((vu32*)0x1FFFFFF8));
-		((void (*)())*((vu32*)0x1FFFFFF8))();
+
+		*((vu32*)arm11EntryPoint) = 0;
+		while(!*((vu32*)arm11EntryPoint));
+		((void (*)())*((vu32*)arm11EntryPoint))();
 	}
-	
+
 	void ARM11(void){
 		__asm(".word 0xF10C01C0");				//CPSID AIF @ Disable Interrupts
-		
-		*((vu32*)0x1FFFFFF8) = 0;
-		while(!*((vu32*)0x1FFFFFF8));
-		((void (*)())*((vu32*)0x1FFFFFF8))();
+
+		*((vu32*)arm11EntryPoint) = 0;
+		while(!*((vu32*)arm11EntryPoint));
+		((void (*)())*((vu32*)arm11EntryPoint))();
 	}
-	
+
 	// In short terms, we initalize the screen just if it still haven't been.
 	// We check if the framebuffer is set.
 	if(!(*(u32*)0x23FFFE00 >= 0x18000000 && *(u32*)0x23FFFE00 < 0x18600000) && !(*(u32*)0x23FFFE00 >= 0x20000000 && *(u32*)0x23FFFE00 < 0x28000000))
 	{
-		*((vu32*)0x1FFFFFF8) = (u32)(isColdBoot ? ARM11Init : ARM11);
-		*((vu32*)0x1FFFFFFC) = (u32)(isColdBoot ? ARM11Init : ARM11);
-		for(volatile unsigned int i = 0; i < 0xF; ++i);
-		while(*(volatile uint32_t *)0x1FFFFFF8 != 0);
+		arm11Execute((u32)(isColdBoot ? ARM11Init : ARM11));
 	}
 }
 
 void screenExit(void){
 	void ARM11(void){
 		__asm(".word 0xF10C01C0");		//CPSID AIF @ Disable Interrupts
-		
+
 		*((vu32*)0x10202A44) = 0;
 		*((vu32*)0x10202244) = 0;
 		*((vu32*)0x1020200C) = 0;
 		*((vu32*)0x10202014) = 0;
-		
-		*((vu32*)0x1FFFFFF8) = 0;
-		while(!*((vu32*)0x1FFFFFF8));
-		((void (*)())*((vu32*)0x1FFFFFF8))();
+
+		*((vu32*)arm11EntryPoint) = 0;
+		while(!*((vu32*)arm11EntryPoint));
+		((void (*)())*((vu32*)arm11EntryPoint))();
 	}
-	
-	*((vu32*)0x1FFFFFF8) = (u32)ARM11;
-	for(volatile unsigned int i = 0; i < 0xF; ++i);
-	while(*(volatile uint32_t *)0x1FFFFFF8 != 0);
+
+	arm11Execute(ARM11);
 }

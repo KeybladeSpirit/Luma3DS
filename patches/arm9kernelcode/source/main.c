@@ -12,9 +12,10 @@ static void initExceptionHandler()
 int main()
 {
 	initExceptionHandler();
-	if(~(*(volatile u32*)0x10146000) & (1 << 2))
+	// SELECT + Y
+	if(~(*(volatile u32*)0x10146000) & (1 << 2) && ~(*(volatile u32*)0x10146000) & (1 << 11))
 	{
-		//((void (*)())0xDEADC0DE)();
+		((void (*)())0xDEADC0DE)();
 	}
 	return 0;
 }

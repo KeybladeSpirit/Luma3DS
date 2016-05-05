@@ -13,7 +13,9 @@
 
 #define isNew3DS			(*((volatile u32*)0x10140FFC) == 7)
 #define isColdBoot			(*((volatile u32*)0x10010000) == 0)
-#define arm11Execute(x)		({*((vu32*)0x1FFFFFF8) = (u32)x; for(volatile unsigned int _i = 0; _i < 0xF; ++_i); while(*(volatile uint32_t *)0x1FFFFFF8 != 0);})
+#define isFirmLaunch		(*((volatile u32*)0x23F00048) != 0)
+#define arm11EntryPoint		0x1FFFFFF8
+#define arm11Execute(x)		({*((vu32*)arm11EntryPoint) = (u32)x; for(volatile unsigned int _i = 0; _i < 0xF; ++_i); while(*(volatile uint32_t *)arm11EntryPoint != 0);})
 
 #include <inttypes.h>
 #include <stddef.h>
@@ -35,9 +37,9 @@
 
 typedef enum
 {
-	NATIVE_FIRM		= 0x00000002,
-	TWL_FIRM		= 0x00000102,
-	AGB_FIRM		= 0x00000202,
+	NATIVE_FIRM	= 0x00000002,
+	TWL_FIRM	= 0x00000102,
+	AGB_FIRM	= 0x00000202,
 } firmType;
 
 fsFile*	findTitleContent(u32 tid_low, u32 tid_high);			// Returns a pointer to the highest version CXI file of the requested title.
@@ -47,4 +49,3 @@ u8*		firmGetFromTitle(firmType tid);							// Decrypts a FIRM from the requested
 void	firmLaunchNative();										// Launches NATIVE_FIRM contained in the CTRNAND's CXI.
 int		fileBrowser(char* folder, void(* func)(char*));			// FileBrowser Dialog : "func" will be executed when a file is selected.
 void	loadPayload(char* path);								// Launches an ARM9 payload at address 0x23F00000 (standard).
-

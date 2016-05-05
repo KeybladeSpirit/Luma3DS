@@ -9,7 +9,7 @@ fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 	char str[256];
 	static char fdir[256];
 	u32 tid = 0;
-	
+
 	sprintf(fdir, "nand:/title/%08X/%08X/content", tid_high, tid_low);
 
 	if(f_opendir(&dir, &fdir[0]) != FR_OK) return 0;
@@ -17,7 +17,7 @@ fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 	{
 		if(strstr(info.fname, ".app") || strstr(info.fname, ".APP"))
 		{
-			// We do not need it to be the proper installed version, 
+			// We do not need it to be the proper installed version,
 			// what matters is the latest version of the content.
 			// We check it by a simple tid comparision.
 			u32 curId;
@@ -27,7 +27,7 @@ fsFile* findTitleContent(u32 tid_high, u32 tid_low)
 		if(info.fname[0] == 0) break;
 	}
 	f_closedir(&dir);
-	
+
 	sprintf(str, "%s/%08X.APP", fdir, tid);
 	fsFile *tmp = fsOpen(str, 1);
 	if(tmp)
@@ -49,8 +49,7 @@ void firmLaunchBin(u8* firmBuffer)
 		}
 		entry += 0x30/sizeof(u32);
 	}
-	*((u32*)0x1FFFFFF8) = *((u32*)(firmBuffer + 8));
-	*((u32*)0x1FFFFFFC) = *((u32*)(firmBuffer + 8));
+	*((u32*)arm11EntryPoint) = *((u32*)(firmBuffer + 8));
 	((void (*)())*((u32*)(firmBuffer + 12)))();
 }
 
@@ -72,7 +71,7 @@ u8* firmGetFromTitle(firmType tid)
 	// Decrypts firm from the installed title
 	if(isNew3DS) tid |= 0x20000000;
 	fsFile* file = findTitleContent((u32)0x00040138, (u32)tid);
-	
+
 	if(file)
 	{
 		// Read NCCH from file
@@ -81,22 +80,22 @@ u8* firmGetFromTitle(firmType tid)
 		fsClose(file);
 		u32 exeFsSize = *((u32*)(ncchBuf + 0x1A4)) * 0x200;
 		u32 exeFsAddr = *((u32*)(ncchBuf + 0x1A0)) * 0x200;
-		
+
 		// Craft the NCCH aes counter for CTR-MODE decryption
 		u8 ctr[0x10];
 		memset((void*)ctr, 0x00, 0x10);
 		for(int i = 0; i < 8; i++) ctr[i] = *(ncchBuf + 0x108 + 7 - i);
 		ctr[8] = 2;
-		
-		// Prepare AES engine 
+
+		// Prepare AES engine
 		u8* keyY = ncchBuf;		// KeyY is the first 0x10 bytes of the NCCH signature
 		aes_setkey(0x2C, keyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
 		aes_setiv(ctr, AES_INPUT_BE | AES_INPUT_NORMAL);
 		aes_use_keyslot(0x2C);
-		
-		// Decrypt 
+
+		// Decrypt
 		aes(ncchBuf + exeFsAddr, ncchBuf + exeFsAddr, exeFsSize/AES_BLOCK_SIZE, ctr, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
-		
+
 		// Firm boot
 		u8* firm = ncchBuf + exeFsAddr + 0x200;
 		return firm;
@@ -115,7 +114,7 @@ void firmLaunchNative()
 }
 
 #define BROWSER_MAX_FILES	0x100
-	
+
 int fileBrowser(char* folder, void(* func)(char*))
 {
 	// Searches for all the files in the SD, we hope to find the
@@ -127,7 +126,7 @@ int fileBrowser(char* folder, void(* func)(char*))
 	u8 entryAttr[BROWSER_MAX_FILES];
 	int entryNum = 0;
 	int sel = 0;
-	
+
 	info.lfname = (char*)0x21000000;
 	info.lfsize = _MAX_LFN + 1;
 	if(f_opendir(&dir, &folder[0]) == FR_OK)
@@ -138,12 +137,12 @@ int fileBrowser(char* folder, void(* func)(char*))
 			if(info.fname[0] == 0) break;
 			if(info.fname[0] == '.') continue;
 			if(strcmp(info.lfname, "System Volume Information") == 0) continue;
-			
+
 			strcpy(entryStr[entryNum], info.lfname[0] ? info.lfname : info.fname);
 			entryAttr[entryNum] = info.fattrib;
 			entryNum++;
 		}
-		f_closedir(&dir);		
+		f_closedir(&dir);
 	}
 	// BubbleSort the entries, in order to have all the folder before the files
 	for(int i = 0; i < entryNum; i++)
@@ -178,7 +177,7 @@ int fileBrowser(char* folder, void(* func)(char*))
 			{
 				DrawCharacter(TOP_SCREEN0, (sel == i) ? '-' : ' ', 10, 20 + 10*i, COLOR_WHITE, COLOR_BLACK);
 			}
-				
+
 			u32 pad = waitHid();
 			if(pad & BUTTON_UP && sel > 0) sel--;
 			if(pad & BUTTON_DOWN && sel < entryNum - 1) sel++;
@@ -204,7 +203,7 @@ void loadPayload(char* path)
 {
 	// Defined in _start.s
 	extern u32 payloadLoader;
-	
+
 	fsFile* file = fsOpen(path, 1);
 	if(file)
 	{

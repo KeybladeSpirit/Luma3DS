@@ -12,7 +12,7 @@ void drawGiantLetter(int character, int x, int y, int xScale, int yScale)
 	{
         int xDisplacement = (x * BYTES_PER_PIXEL * SCREEN_HEIGHT);
         int yDisplacement = ((SCREEN_HEIGHT - (y + yy) - 1) * BYTES_PER_PIXEL);
-		
+
 		for(int _scaley = 0; _scaley < yScale; _scaley++)
 		{
 			u8* screenPos = TOP_SCREEN0 + xDisplacement + yDisplacement;
@@ -47,14 +47,14 @@ void drawSplashString(const char* str, int y, bool anim)
 	int xPos = (400 - strlen(str)*(charDist))/2;
 	int waitTime = 10000000/8;
 	int drawTime = 1000000/2;
-	
+
 	if(anim)
 	{
 		drawGiantLetter('_', xPos + charDist*0, y, xScale, yScale);
 		ioDelay(waitTime);
 		drawGiantLetter(' ', xPos + charDist*0, y, xScale, yScale);
-		ioDelay(waitTime); 
-		
+		ioDelay(waitTime);
+
 		for(int i = 0; i < strlen(str) + 1; i++)
 		{
 			for(int j = 0; j < i; j++)
@@ -95,14 +95,14 @@ void splashScreen()
 u8 *_memSearch(u8 *startPos, const void *pattern, u32 size, u32 patternSize)
 {
     const u8 *patternc = (const u8 *)pattern;
-	
+
     //Preprocessing
     u32 table[256];
     for(u32 i = 0; i < 256; ++i)
         table[i] = patternSize + 1;
     for(u32 i = 0; i < patternSize; ++i)
         table[patternc[i]] = patternSize - i;
-		
+
     //Searching
     u32 j = 0;
     while(j <= size - patternSize)
@@ -119,7 +119,7 @@ u8* memSearch(u8* memstart, u8* memend, u8* memblock, u32 memsize)
 	return _memSearch(memstart, (void*)memblock, (u32)(memend - memstart), (u32)memsize);
 }
 
-char* dirToAvoid[] = 
+char* dirToAvoid[] =
 {
 	"Nintendo 3DS",
 	"System Volume Information",
@@ -162,7 +162,7 @@ int getPayloadPath(char* path, char* baseDir)
 				}
 			}
 			if(avoid) continue;
-			
+
 			sprintf(tmp, "%s/%s", baseDir, info.lfname);
 
 			if(info.fattrib & AM_DIR)
@@ -191,7 +191,7 @@ int getPayloadPath(char* path, char* baseDir)
 			}
 			memset(info.lfname, 0, info.lfsize);
 		}
-		f_closedir(&dir);		
+		f_closedir(&dir);
 	}
 	return 0;
 }
@@ -205,22 +205,22 @@ void cryptArm9Bin(u8* buf)
 	};
 	if(*((u32*)(buf + 0x50)) == 0x324C394B) key2 = secretKeys[1];
 	else key2 = secretKeys[0];
-	
+
 	// Firm keys
 	u8 keyX[0x10];
 	u8 keyY[0x10];
 	u8 CTR[0x10];
 	u32 slot = 0x16;
-	
+
 	// Setup keys needed for arm9bin decryption
 	memcpy((u8*)keyY, (void *)((uintptr_t)buf+0x10), 0x10);
 	memcpy((u8*)CTR, (void *)((uintptr_t)buf+0x20), 0x10);
 	u32 size = atoi((void *)((uintptr_t)buf+0x30));
-	
+
 	// Set 0x11 to key2 for the arm9bin and misc keys
 	aes_setkey(0x11, (u8*)key2, AES_KEYNORMAL, AES_INPUT_BE | AES_INPUT_NORMAL);
 	aes_use_keyslot(0x11);
-	
+
 	// Set 0x16 keyX, keyY and CTR
 	if(*((u32*)(buf + 0x100)) == 0)
 	{
@@ -234,7 +234,7 @@ void cryptArm9Bin(u8* buf)
 	aes_setkey(slot, (u8*)keyY, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
 	aes_setiv((u8*)CTR, AES_INPUT_BE | AES_INPUT_NORMAL);
 	aes_use_keyslot(slot);
-	
+
 	//Decrypt arm9bin
 	aes((void *)(buf+0x800), (void *)(buf+0x800), size/AES_BLOCK_SIZE, CTR, AES_CTR_MODE, AES_INPUT_BE | AES_INPUT_NORMAL);
 }
@@ -280,7 +280,7 @@ int patchFirmLaunch(u8* data, u32 size)
 	return 1;
 }
 
-int patchSignatureChecks(u8* data, u32 size)
+int patchSignatureChecks(u8* data, u32 size, int isNative)
 {
 	if(!curConfig->powMode) return 0;
 	u8 stockCode[] = { 0x70, 0xB5, 0x22, 0x4D, 0x0C, 0x00, 0x69, 0x68, 0xCE, 0xB0, 0xCB, 0x08, 0x01, 0x68, 0x0E, 0x68};
@@ -299,12 +299,11 @@ int patchSignatureChecks(u8* data, u32 size)
 			#endif
 			return 0;
 		}
-		result++;
-		return 1;
+		if(!isNative) return 0;
 	}
 	Debug("[FAIL] Signature Checks Patch");
-	result += 2;
-	return 2;
+	result ++;
+	return 1;
 }
 
 int patchFirmPartitionUpdate(u8* data, u32 size)
@@ -342,7 +341,7 @@ int patchArm9KernelCode(u8* data, u32 size)
 		u32 kernelReturn = (buffer - data) + 8 + 0x08006800;
 		*((u32*)(buffer + 0)) = (u32)0xE51FF004;	// LDR PC, [PC,#-4]
 		*((u32*)(buffer + 4)) = (u32)0x0801A500;	// Our Code
-		u32 magicWord = 0xDEADC0DE;	
+		u32 magicWord = 0xDEADC0DE;
 		buffer = data + 0x13D00;
 		memcpy((void*)buffer, patches_arm9kernelcode_bin, patches_arm9kernelcode_bin_size);
 		u8* returnAddr = memSearch(buffer, buffer + patches_arm9kernelcode_bin_size, (u8*)&magicWord, 4);
@@ -415,21 +414,21 @@ int patchTwlChecks(u8* data, u32 size)
 	// This all belongs to TuxSH and Steveice10 work
 	int res = 0;
 	u8* buffer;
-	
+
 	// Patch RSA function to not report invalid signatures
 	buffer = memSearch(data, data + size, (u8[8]){0x00, 0x20, 0xF6, 0xE7, 0x7F, 0xB5, 0x04, 0x00}, 8);
 	if(buffer)
 	{
 		*((u16*)(buffer)) = 0x2001;
 	}else res++;
-	
+
 	// Disable whitelist check
 	buffer = memSearch(data, data + size, (u8[4]){0xFF, 0xF7, 0xB6, 0xFB}, 4);
 	if(buffer)
 	{
 		*((u32*)(buffer)) = 0x00002000;
 	}else res++;
-	
+
 	// Disable cartridge blacklist, save type, DSi cartridge save exploit checks
 	buffer = memSearch(data, data + size, isNew3DS ? (u8[6]){0x20, 0x00, 0x0E, 0xF0, 0x15, 0xFE} : (u8[6]){0x20, 0x00, 0x0E, 0xF0, 0xF9, 0xFD}, 6);
 	if(buffer)
@@ -439,14 +438,14 @@ int patchTwlChecks(u8* data, u32 size)
 		memcpy((void*)(buffer + 14), (void*)patch, 4);
 		memcpy((void*)(buffer + 26), (void*)patch, 4);
 	}else res++;
-	
+
 	// Disable SHA check
 	buffer = memSearch(data, data + size, (u8[4]){0x10, 0xB5, 0x14, 0x22}, 4);
 	if(buffer)
 	{
 		*((u32*)(buffer)) = 0x47702001;
 	}else res++;
-	
+
 	if(res)
 	{
 		Debug("[FAIL] ARM9 TWL Checks Bypass\n");
@@ -477,9 +476,26 @@ int patchLoaderModule(u8* data, u32 size)
 		#ifdef VERBOSE
 			Debug("[GOOD] Loader Module Hack");
 		#endif
-		return 0;		
+		return 0;
 	}
 	Debug("[FAIL] Loader Module Hack");
+	result++;
+	return 1;
+}
+
+int patchArm11Reboot(u8* data, u32 size)
+{
+	u32 rebootAddr = (u32)0x1FFFFFFC;
+	u8* buffer = memSearch(data, data + size, (u8*)&rebootAddr, 4);
+	if(buffer)
+	{
+		*((u32*)buffer) = 0x1FFFFFF8;
+		#ifdef VERBOSE
+			Debug("[GOOD] ARM11 Reboot Address");
+		#endif
+		return 0;
+	}
+	Debug("[FAIL] ARM11 Reboot Address");
 	result++;
 	return 1;
 }
@@ -492,25 +508,25 @@ firmType getRequestedFirm()
 		default:
 		case 0x30: return NATIVE_FIRM;
 		case 0x31: return TWL_FIRM;
-		case 0x32: return AGB_FIRM;	
+		case 0x32: return AGB_FIRM;
 	}
 }
 
 void powerFirm(u8* firm)
 {
 	u32 isNew = 0;
-	
+
 	splashScreen();
 	if(getHid() & BUTTON_L1 && isColdBoot) configMenu();
-	
-	if(!firm) firm = firmGetFromTitle(getRequestedFirm());	
+
+	if(!firm) firm = firmGetFromTitle(getRequestedFirm());
 	if(firm)
 	{
 		if(*((u32*)firm) == 0x4D524946)
 		{
 			if(curConfig->powDebug)
 				memcpy((void*)0x1FF8000, (void*)patches_debugger_bin, (u32)0x3700);
-				
+
 			firmEntry* entry = (firmEntry*)(firm + 0x40);
 			if(isNew3DS)
 			{
@@ -528,31 +544,33 @@ void powerFirm(u8* firm)
 				}
 				isNew = 0x800;
 			}
-			
+
 			switch(getRequestedFirm())
 			{
 				case NATIVE_FIRM:
 				{
 					u8 *k9Data = firm + (u32)entry[2].data + isNew, *p9Data = k9Data + 0x15000;
 					u32 k9Size = entry[2].size - isNew, p9Size = k9Size - 0x15000;
-					
+
 					arm11Execute(patchLoaderModule (firm + (u32)entry[0].data, entry[0].size));
 					arm11Execute(patchFirmPartitionUpdate (p9Data, p9Size));
 					arm11Execute(patchFirmLaunch (p9Data, p9Size));
-					arm11Execute(patchSignatureChecks (p9Data, p9Size));
+					arm11Execute(patchSignatureChecks (p9Data, p9Size, 1));
 					arm11Execute(patchArm9Mpu (k9Data, k9Size));
 					arm11Execute(patchArm9KernelCode (k9Data, k9Size));
+					arm11Execute(patchArm11Reboot (firm + (u32)entry[1].data, entry[1].size));
 					break;
 				}
 				case TWL_FIRM:
 				{
-					arm11Execute(patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
+					arm11Execute(patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew, 0));
 					// arm11Execute(patchTwlChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
+					result--;
 					break;
 				}
 				case AGB_FIRM:
 				{
-					arm11Execute(patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
+					arm11Execute(patchSignatureChecks (firm + (u32)entry[3].data + isNew, entry[3].size - isNew, 0));
 					arm11Execute(patchAgbBootSplash (firm + (u32)entry[3].data + isNew, entry[3].size - isNew));
 					break;
 				}
@@ -569,7 +587,7 @@ void powerFirm(u8* firm)
 		Debug("[ERROR] Could not open FIRM title");
 		result++;
 	}
-	
+
 	if(result)
 	{
 		Debug(" ");
@@ -580,11 +598,10 @@ void powerFirm(u8* firm)
 			if(key & BUTTON_A) return;
 		}
 	}
-	
+
 	#ifdef VERBOSE
 		Debug("Launch!");
 	#endif
-	
+
 	firmLaunchBin(firm);
 }
-
